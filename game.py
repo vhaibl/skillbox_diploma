@@ -14,3 +14,4 @@ if __name__ == '__main__':
     d = GlazovDrone()
     scene.go()
 
+# Первый этап: зачёт!

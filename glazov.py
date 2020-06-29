@@ -24,14 +24,12 @@ class GlazovDrone(Drone):
             return self.my_mothership
         asteroid = random.choice(asteroids)
         self.used.append(asteroid)
-        print(asteroids)
         return asteroid
 
     def on_stop_at_asteroid(self, asteroid):
         self.load_from(asteroid)
 
     def on_load_complete(self):
-
         if self.payload < 100 and self.target.payload <= 0:
             self.target = self._get_my_asteroid()
             self.move_at(self.target)
@@ -50,6 +48,7 @@ class GlazovDrone(Drone):
             self.move_at(self.target)
 
     def if_empty(self):
+        # TODO - Нейминг! Имя функции не отражает её суть. Функция это прежде всего глагол
         if self.target.payload <= 0:
             self.target = self._get_my_asteroid()
         self.move_at(self.target)
