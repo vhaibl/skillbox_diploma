@@ -54,6 +54,7 @@ class GlazovDrone(Drone):
         # self.stats()
 
         self.move_at(self.target)
+        self.my_team.append(self)
 
     # @stats
     def _get_my_asteroid(self, dist):
@@ -137,6 +138,7 @@ class GlazovDrone(Drone):
 
     @stats
     def on_unload_complete(self):
+        self.if_empty()
 
         while self.target.payload == 0:
             self.target = self._get_my_asteroid(dist='distance_random')
