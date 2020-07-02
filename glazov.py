@@ -138,7 +138,6 @@ class GlazovDrone(Drone):
 
     @stats
     def on_unload_complete(self):
-        self.if_empty()
 
         while self.target.payload == 0:
             self.target = self._get_my_asteroid(dist='distance_random')
