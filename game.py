@@ -8,9 +8,12 @@ from glazov import GlazovDrone
 
 if __name__ == '__main__':
     scene = SpaceField(
-        speed=3,
+        speed=7,
         asteroids_count=5,
     )
-    d = GlazovDrone()
-    scene.go()
+    for x in range(5):
 
+        x = GlazovDrone()
+
+
+    scene.go()
