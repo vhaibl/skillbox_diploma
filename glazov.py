@@ -8,8 +8,11 @@ class GlazovDrone(Drone):
     my_team = []
 
     def __init__(self):
+        # TODO - Перед использованием функции супер-класса неплохо было бы посмотреть аргументы её.
+        #  Там кварги передаются
         super().__init__()
         self.used = set()
+        # TODO - Почистите код от закомментированного кода. Если понадобится, вытащите из коммитов
         # self.part_loaded1 = {}
         # self.empty1 = {}
         # self.full_loaded1 = {}
@@ -23,6 +26,8 @@ class GlazovDrone(Drone):
         # self.stats_dict[self.id]['full'] = 0
 
     def stats_decorator(func):
+        # TODO - Эта функция не используется, убирайте
+
         def surrogate(self, *args, **kwargs):
 
             result = func(self, *args, **kwargs)
@@ -71,9 +76,14 @@ class GlazovDrone(Drone):
             if delete in asteroids:
                 asteroids.remove(delete)
 
+        # TODO - Не делайте так никогда: определение функция внутри др функции
+        #  лучше сделайте приватным методом класса
         def max_distance():
             max = 0
             target = None
+            # TODO - Нейминг! Однобуквенные переменные - плохой тон.
+            #  Чтобы понять для чего эта переменная, нужно проанализировать код ниже, понять суть её, затем вернуться
+            #  и продолжить анализ кода
             for a in asteroids:
                 if self.distance_to(a) > max:
                     max = self.distance_to(a)
@@ -118,6 +128,7 @@ class GlazovDrone(Drone):
             asteroid = avg_distance()
         elif dist == 'distance_random':
             asteroid = rand_distance()
+        # TODO - PyCharm подсказывает, что asteroid не всегда м.б. определена ,что вызовет ошибку при таком случае
         self.used.add(asteroid)
 
         return asteroid
@@ -126,7 +137,7 @@ class GlazovDrone(Drone):
         if not self.is_alive:
             return
         self.stats()
-        super(Drone, self).move_at(target, speed=theme.DRONE_SPEED)
+        super().move_at(target, speed=speed)
 
     def on_stop_at_asteroid(self, asteroid):
         self.load_from(asteroid)
