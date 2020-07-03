@@ -2,7 +2,6 @@
 import random
 
 from astrobox.core import Drone
-from robogame_engine.theme import theme
 
 
 class GlazovDrone(Drone):
@@ -11,11 +10,21 @@ class GlazovDrone(Drone):
     def __init__(self):
         super().__init__()
         self.used = set()
+        # self.part_loaded1 = {}
+        # self.empty1 = {}
+        # self.full_loaded1 = {}
+        # self.part_loaded1[self.id] = 0
+        # self.empty1[self.id] = 0
+        # self.full_loaded1[self.id] = 0
         self.stats_dict = {}
         self.stats_dict[self.id] = {}
+        # self.stats_dict[self.id]['empty'] = 0
+        # self.stats_dict[self.id]['partial'] = 0
+        # self.stats_dict[self.id]['full'] = 0
 
     def stats_decorator(func):
         def surrogate(self, *args, **kwargs):
+
             result = func(self, *args, **kwargs)
             if 'empty' not in self.stats_dict[self.id]:
                 self.stats_dict[self.id]['empty'] = 0
@@ -46,6 +55,7 @@ class GlazovDrone(Drone):
 
     def on_born(self):
         self.my_team.append(self)
+
         if self.id == 1:
             self.target = self._get_my_asteroid(dist='distance_far')
         elif self.id == 2:
