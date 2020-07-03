@@ -2,6 +2,7 @@
 import random
 
 from astrobox.core import Drone
+from robogame_engine.theme import theme
 
 
 class GlazovDrone(Drone):
@@ -10,21 +11,11 @@ class GlazovDrone(Drone):
     def __init__(self):
         super().__init__()
         self.used = set()
-        # self.part_loaded1 = {}
-        # self.empty1 = {}
-        # self.full_loaded1 = {}
-        # self.part_loaded1[self.id] = 0
-        # self.empty1[self.id] = 0
-        # self.full_loaded1[self.id] = 0
         self.stats_dict = {}
         self.stats_dict[self.id] = {}
-        # self.stats_dict[self.id]['empty'] = 0
-        # self.stats_dict[self.id]['partial'] = 0
-        # self.stats_dict[self.id]['full'] = 0
 
-    def stats(func, *args, **kwargs):
+    def stats_decorator(func):
         def surrogate(self, *args, **kwargs):
-
             result = func(self, *args, **kwargs)
             if 'empty' not in self.stats_dict[self.id]:
                 self.stats_dict[self.id]['empty'] = 0
@@ -40,30 +31,35 @@ class GlazovDrone(Drone):
 
         return surrogate
 
-    @stats
+    def stats(self):
+        if 'empty' not in self.stats_dict[self.id]:
+            self.stats_dict[self.id]['empty'] = 0
+            self.stats_dict[self.id]['partial'] = 0
+            self.stats_dict[self.id]['full'] = 0
+        if self.is_empty:
+            self.stats_dict[self.id]['empty'] += int(self.distance_to(self.target))
+        if self.free_space > 0 and self.free_space < 100:
+            self.stats_dict[self.id]['partial'] += int(self.distance_to(self.target))
+        if self.fullness == 1:
+            self.stats_dict[self.id]['full'] += int(self.distance_to(self.target))
+        return self.stats_dict
+
     def on_born(self):
         self.my_team.append(self)
-
         if self.id == 1:
             self.target = self._get_my_asteroid(dist='distance_far')
         elif self.id == 2:
             self.target = self._get_my_asteroid(dist='distance_far')
         else:
             self.target = self._get_my_asteroid(dist='distance_random')
-
-        # self.stats()
-
         self.move_at(self.target)
         self.my_team.append(self)
 
-    # @stats
     def _get_my_asteroid(self, dist):
         asteroids = self.asteroids
-
         for delete in self.used:
-            if delete.payload == 0:
-                if delete in asteroids:
-                    asteroids.remove(delete)
+            if delete in asteroids:
+                asteroids.remove(delete)
 
         def max_distance():
             max = 0
@@ -102,7 +98,7 @@ class GlazovDrone(Drone):
             return rand
 
         if len(asteroids) == 0:
-            return self.my_mothership
+            return self.mothership
 
         if dist == 'distance_far':
             asteroid = max_distance()
@@ -116,40 +112,32 @@ class GlazovDrone(Drone):
 
         return asteroid
 
-    @stats
+    def move_at(self, target, speed=None):
+        if not self.is_alive:
+            return
+        self.stats()
+        super(Drone, self).move_at(target, speed=theme.DRONE_SPEED)
+
     def on_stop_at_asteroid(self, asteroid):
         self.load_from(asteroid)
 
-    @stats
     def on_load_complete(self):
-        if self.payload < 30 and self.target.payload <= 0:
+        if self.payload < 50 and self.target.payload <= 0:
             while self.target.payload == 0:
                 self.target = self._get_my_asteroid(dist='distance_near')
-            # self.stats()
             self.move_at(self.target)
-
         else:
-            # self.stats()
             self.move_at(self.my_mothership)
 
-    @stats
     def on_stop_at_mothership(self, mothership):
         self.unload_to(mothership)
 
-    @stats
     def on_unload_complete(self):
-
-        while self.target.payload == 0:
+        while self.target.payload <= 1:
             self.target = self._get_my_asteroid(dist='distance_random')
-
-        # self.stats()
         self.move_at(self.target)
-        print(
-            f'Дрон {self.id} пролетел {self.stats_dict[self.id]["empty"]} ед. пустым, '
-            f'{self.stats_dict[self.id]["partial"]} ед. частично загруженным,'
-            f' {self.stats_dict[self.id]["full"]} ед. полностью загруженным')
-
-    @stats
-    def on_wake_up(self):
-        # self.stats()
-        pass
+        if self.target is self.mothership:
+            print(
+                f'Дрон {self.id} пролетел {self.stats_dict[self.id]["empty"]} ед. пустым, '
+                f'{self.stats_dict[self.id]["partial"]} ед. частично загруженным,'
+                f' {self.stats_dict[self.id]["full"]} ед. полностью загруженным')
