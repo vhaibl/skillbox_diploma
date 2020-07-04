@@ -7,43 +7,11 @@ from astrobox.core import Drone
 class GlazovDrone(Drone):
     my_team = []
 
-    def __init__(self):
-        # TODO - Перед использованием функции супер-класса неплохо было бы посмотреть аргументы её.
-        #  Там кварги передаются
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.used = set()
-        # TODO - Почистите код от закомментированного кода. Если понадобится, вытащите из коммитов
-        # self.part_loaded1 = {}
-        # self.empty1 = {}
-        # self.full_loaded1 = {}
-        # self.part_loaded1[self.id] = 0
-        # self.empty1[self.id] = 0
-        # self.full_loaded1[self.id] = 0
         self.stats_dict = {}
         self.stats_dict[self.id] = {}
-        # self.stats_dict[self.id]['empty'] = 0
-        # self.stats_dict[self.id]['partial'] = 0
-        # self.stats_dict[self.id]['full'] = 0
-
-    def stats_decorator(func):
-        # TODO - Эта функция не используется, убирайте
-
-        def surrogate(self, *args, **kwargs):
-
-            result = func(self, *args, **kwargs)
-            if 'empty' not in self.stats_dict[self.id]:
-                self.stats_dict[self.id]['empty'] = 0
-                self.stats_dict[self.id]['partial'] = 0
-                self.stats_dict[self.id]['full'] = 0
-            if self.is_empty:
-                self.stats_dict[self.id]['empty'] += int(self.distance_to(self.target))
-            if self.free_space > 0 and self.free_space < 100:
-                self.stats_dict[self.id]['partial'] += int(self.distance_to(self.target))
-            if self.fullness == 1:
-                self.stats_dict[self.id]['full'] += int(self.distance_to(self.target))
-            return result
-
-        return surrogate
 
     def stats(self):
         if 'empty' not in self.stats_dict[self.id]:
@@ -54,8 +22,8 @@ class GlazovDrone(Drone):
             self.stats_dict[self.id]['empty'] += int(self.distance_to(self.target))
         if self.free_space > 0 and self.free_space < 100:
             self.stats_dict[self.id]['partial'] += int(self.distance_to(self.target))
-        if self.fullness == 1:
-            self.stats_dict[self.id]['full'] += int(self.distance_to(self.target))
+        if self.is_full:
+            self.stats_dict[self.id]['full'] += int(self.distance_to(self.my_mothership))
         return self.stats_dict
 
     def on_born(self):
@@ -70,67 +38,60 @@ class GlazovDrone(Drone):
         self.move_at(self.target)
         self.my_team.append(self)
 
+    def __max_distance(self, asteroids):
+        max = 0
+        target = None
+        for asteroid in asteroids:
+            if self.distance_to(asteroid) > max:
+                max = self.distance_to(asteroid)
+                target = asteroid
+        return target
+
+    def __min_distance(self, asteroids):
+        min = 100000
+        target = None
+        for asteroid in asteroids:
+            if self.distance_to(asteroid) < min:
+                min = self.distance_to(asteroid)
+                target = asteroid
+        return target
+
+    def __avg_distance(self, asteroids):
+        distance_list = []
+        for asteroid in asteroids:
+            distance_list.append((self.distance_to(asteroid), asteroid))
+        distance_list = sorted(reversed(distance_list))
+        z = (len(distance_list) // 2)
+        avg = distance_list[z][1]
+        return avg
+
+    def __rand_distance(self, asteroids):
+        distance_list = []
+        for asteroid in asteroids:
+            distance_list.append((self.distance_to(asteroid), asteroid))
+        distance_list = sorted(reversed(distance_list))
+        z = random.randint(0, len(distance_list) - 1)
+        rand = distance_list[z][1]
+        return rand
+
     def _get_my_asteroid(self, dist):
         asteroids = self.asteroids
         for delete in self.used:
             if delete in asteroids:
                 asteroids.remove(delete)
-
-        # TODO - Не делайте так никогда: определение функция внутри др функции
-        #  лучше сделайте приватным методом класса
-        def max_distance():
-            max = 0
-            target = None
-            # TODO - Нейминг! Однобуквенные переменные - плохой тон.
-            #  Чтобы понять для чего эта переменная, нужно проанализировать код ниже, понять суть её, затем вернуться
-            #  и продолжить анализ кода
-            for a in asteroids:
-                if self.distance_to(a) > max:
-                    max = self.distance_to(a)
-                    target = a
-            return target
-
-        def min_distance():
-            min = 100000
-            target = None
-            for a in asteroids:
-                if self.distance_to(a) < min:
-                    min = self.distance_to(a)
-                    target = a
-            return target
-
-        def avg_distance():
-            distance_list = []
-            for a in asteroids:
-                distance_list.append((self.distance_to(a), a))
-            distance_list = sorted(reversed(distance_list))
-            z = (len(distance_list) // 2)
-            avg = distance_list[z][1]
-            return avg
-
-        def rand_distance():
-            distance_list = []
-            for a in asteroids:
-                distance_list.append((self.distance_to(a), a))
-            distance_list = sorted(reversed(distance_list))
-            z = random.randint(0, len(distance_list) - 1)
-            rand = distance_list[z][1]
-            return rand
-
         if len(asteroids) == 0:
-            return self.mothership
-
+            return self.my_mothership
         if dist == 'distance_far':
-            asteroid = max_distance()
+            asteroid = self.__max_distance(asteroids)
         elif dist == 'distance_near':
-            asteroid = min_distance()
+            asteroid = self.__min_distance(asteroids)
         elif dist == 'distance_average':
-            asteroid = avg_distance()
+            asteroid = self.__avg_distance(asteroids)
         elif dist == 'distance_random':
-            asteroid = rand_distance()
-        # TODO - PyCharm подсказывает, что asteroid не всегда м.б. определена ,что вызовет ошибку при таком случае
+            asteroid = self.__rand_distance(asteroids)
+        else:
+            asteroid = self.__rand_distance(asteroids)
         self.used.add(asteroid)
-
         return asteroid
 
     def move_at(self, target, speed=None):
@@ -138,12 +99,17 @@ class GlazovDrone(Drone):
             return
         self.stats()
         super().move_at(target, speed=speed)
+        if self.target == self.my_mothership and self.is_empty:
+            print(
+                f'Дрон {self.id} пролетел {self.stats_dict[self.id]["empty"]} ед. пустым, '
+                f'{self.stats_dict[self.id]["partial"]} ед. частично загруженным,'
+                f' {self.stats_dict[self.id]["full"]} ед. полностью загруженным')
 
     def on_stop_at_asteroid(self, asteroid):
         self.load_from(asteroid)
 
     def on_load_complete(self):
-        if self.payload < 50 and self.target.payload <= 0:
+        if self.payload < 75 and self.target.payload <= 0:
             while self.target.payload == 0:
                 self.target = self._get_my_asteroid(dist='distance_near')
             self.move_at(self.target)
@@ -154,11 +120,6 @@ class GlazovDrone(Drone):
         self.unload_to(mothership)
 
     def on_unload_complete(self):
-        while self.target.payload <= 1:
+        while self.target.payload == 0:
             self.target = self._get_my_asteroid(dist='distance_random')
         self.move_at(self.target)
-        if self.target is self.mothership:
-            print(
-                f'Дрон {self.id} пролетел {self.stats_dict[self.id]["empty"]} ед. пустым, '
-                f'{self.stats_dict[self.id]["partial"]} ед. частично загруженным,'
-                f' {self.stats_dict[self.id]["full"]} ед. полностью загруженным')
