@@ -60,6 +60,8 @@ class GlazovDrone(Drone):
         distance_list = []
         for asteroid in asteroids:
             distance_list.append((self.distance_to(asteroid), asteroid))
+
+        # TODO - Сначала reversed, затем sorted - ? В таком случае можно просто sorted
         distance_list = sorted(reversed(distance_list))
         z = (len(distance_list) // 2)
         avg = distance_list[z][1]
