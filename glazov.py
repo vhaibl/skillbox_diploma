@@ -30,9 +30,9 @@ class GlazovDrone(Drone):
         self.my_team.append(self)
 
         if self.id == 1:
-            self.target = self._get_my_asteroid(dist='distance_far')
+            self.target = self._get_my_asteroid(dist='distance_near')
         elif self.id == 2:
-            self.target = self._get_my_asteroid(dist='distance_far')
+            self.target = self._get_my_asteroid(dist='distance_near')
         else:
             self.target = self._get_my_asteroid(dist='distance_random')
         self.move_at(self.target)
@@ -60,9 +60,7 @@ class GlazovDrone(Drone):
         distance_list = []
         for asteroid in asteroids:
             distance_list.append((self.distance_to(asteroid), asteroid))
-
-        # TODO - Сначала reversed, затем sorted - ? В таком случае можно просто sorted
-        distance_list = sorted(reversed(distance_list))
+        distance_list = sorted(distance_list)
         z = (len(distance_list) // 2)
         avg = distance_list[z][1]
         return avg
@@ -71,7 +69,11 @@ class GlazovDrone(Drone):
         distance_list = []
         for asteroid in asteroids:
             distance_list.append((self.distance_to(asteroid), asteroid))
-        distance_list = sorted(reversed(distance_list))
+        if len(distance_list) >= 6:
+            distance_list = sorted(distance_list[0:len(distance_list)//2-5])
+        else:
+            distance_list = sorted(distance_list[0:len(distance_list)])
+
         z = random.randint(0, len(distance_list) - 1)
         rand = distance_list[z][1]
         return rand
@@ -111,7 +113,7 @@ class GlazovDrone(Drone):
         self.load_from(asteroid)
 
     def on_load_complete(self):
-        if self.payload < 75 and self.target.payload <= 0:
+        if self.payload < 90 and self.target.payload <= 0:
             while self.target.payload == 0:
                 self.target = self._get_my_asteroid(dist='distance_near')
             self.move_at(self.target)
@@ -123,5 +125,8 @@ class GlazovDrone(Drone):
 
     def on_unload_complete(self):
         while self.target.payload == 0:
-            self.target = self._get_my_asteroid(dist='distance_random')
+            if self.id == 1 or self.id == 2 or self.id :
+                self.target = self._get_my_asteroid(dist='distance_near')
+            else:
+                self.target = self._get_my_asteroid(dist='distance_random')
         self.move_at(self.target)
