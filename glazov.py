@@ -39,6 +39,7 @@ class GlazovDrone(Drone):
         self.my_team.append(self)
 
     def __max_distance(self, asteroids):
+        # TODO - Нейминг! Переменная имеет имя как ключевое слово python. Теперь она перекрывает его
         max = 0
         target = None
         for asteroid in asteroids:
@@ -48,6 +49,7 @@ class GlazovDrone(Drone):
         return target
 
     def __min_distance(self, asteroids):
+        # TODO - Нейминг! Переменная имеет имя как ключевое слово python. Теперь она перекрывает его
         min = 100000
         target = None
         for asteroid in asteroids:
@@ -61,6 +63,7 @@ class GlazovDrone(Drone):
         for asteroid in asteroids:
             distance_list.append((self.distance_to(asteroid), asteroid))
         distance_list = sorted(distance_list)
+        # TODO - Нейминг! Однобуквенные переменные - плохой тон
         z = (len(distance_list) // 2)
         avg = distance_list[z][1]
         return avg
@@ -73,7 +76,7 @@ class GlazovDrone(Drone):
             distance_list = sorted(distance_list[0:len(distance_list)//2-5])
         else:
             distance_list = sorted(distance_list[0:len(distance_list)])
-
+        # TODO - Нейминг! Однобуквенные переменные - плохой тон
         z = random.randint(0, len(distance_list) - 1)
         rand = distance_list[z][1]
         return rand
@@ -125,7 +128,7 @@ class GlazovDrone(Drone):
 
     def on_unload_complete(self):
         while self.target.payload == 0:
-            if self.id == 1 or self.id == 2 or self.id :
+            if self.id == 1 or self.id == 2 or self.id:
                 self.target = self._get_my_asteroid(dist='distance_near')
             else:
                 self.target = self._get_my_asteroid(dist='distance_random')
