@@ -6,7 +6,7 @@ from astrobox.space_field import SpaceField
 from stage_03_harvesters.driller import DrillerDrone
 from stage_03_harvesters.reaper import ReaperDrone
 from stage_04_soldiers.devastator import DevastatorDrone
-# TODO тут импортировать своих дронов
+from dev_glazov import GlazovDrone
 from vader import VaderDrone
 
 NUMBER_OF_DRONES = 5
@@ -19,7 +19,7 @@ if __name__ == '__main__':
         can_fight=True,
     )
     # TODO создать их
-    team_1 = [VaderDrone() for _ in range(NUMBER_OF_DRONES)]
+    team_1 = [GlazovDrone() for _ in range(NUMBER_OF_DRONES)]
     # TODO и побороть противников!
     team_2 = [ReaperDrone() for _ in range(NUMBER_OF_DRONES)]
     team_3 = [DrillerDrone() for _ in range(NUMBER_OF_DRONES)]
