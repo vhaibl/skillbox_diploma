@@ -15,7 +15,6 @@ class GlazovDrone(Drone):
 
     def __init__(self, **kwargs):
 
-        theme.PLASMAGUN_COOLDOWN_TIME = 20
         super().__init__(**kwargs)
         self.used = set()
         self.stats_dict = {}
@@ -93,6 +92,7 @@ class GlazovDrone(Drone):
         not_empty_asteroids = [asteroid for asteroid in self.scene.asteroids if not asteroid.is_empty]
         not_empty_asteroids.extend([mothership for mothership in self.scene.motherships
                                     if not mothership.is_alive and not mothership.is_empty])
+        # TODO - Убирайте неиспользуемый код. Если что в коммитах можно будет найти
         # not_empty_asteroids.extend(
         #     [drone for drone in self.scene.drones if not drone.is_alive and not drone.is_empty])
 
@@ -129,7 +129,7 @@ class GlazovDrone(Drone):
     def turn_to(self, target, speed=None):
         if not self.is_alive:
             return
-        super(Drone, self).turn_to(target, speed=1000)
+        super().turn_to(target, speed=speed)
 
 
 
@@ -259,7 +259,7 @@ class GlazovDrone(Drone):
         if not self.is_alive:
             return
         self.stats()
-        super(Drone, self).move_at(target, speed=1000)
+        super().move_at(target, speed=speed)
         if self.target == self.my_mothership and self.is_empty and self.job is 'worker':
             print(
                 f'Дрон {self.id} пролетел {self.stats_dict[self.id]["empty"]} ед. пустым, '
