@@ -7,7 +7,7 @@ from robogame_engine.geometry import Point, Vector
 from robogame_engine.theme import theme
 
 theme.FIELD_WIDTH = 900
-theme.FIELD_HEIGHT = 900
+theme.FIELD_HEIGHT = 600
 
 
 class GlazovDrone(Drone):
@@ -19,10 +19,22 @@ class GlazovDrone(Drone):
         self.used = set()
         self.stats_dict = {}
         self.stats_dict[self.id] = {}
-
+        self.condition = 'normal'
         self.target = None
         self.destination = None
-        if self.id == 6:
+        self.ready = False
+        self.destinations = {1: (random.randint(120,800), random.randint(120,800)),
+                             2: (random.randint(120,800), random.randint(120,800)),
+                             3: (random.randint(120,800), random.randint(120,800)),
+                             4: (random.randint(120,800), random.randint(120,800)),
+                             5: (random.randint(120,800), random.randint(120,800))}
+                            # {1: (120, 120),
+                            #  2: (200, 200),
+                            #  3: (300, 400),
+                            #  4: (400, 300),
+                            #  5: (300, 300)}
+
+        if self.id == 1:
             self.job = 'worker'
         else:
             self.job = 'fighter'
@@ -30,27 +42,46 @@ class GlazovDrone(Drone):
 
     def get_target(self):
 
-        enemies = [(drone, self.distance_to(drone)) for drone in self.scene.drones if
-                   self.team != drone.team and drone.is_alive and drone.team_number == 4]
+        enemies = [(drone, self.distance_to(drone), drone.id) for drone in self.scene.drones if
+                   self.team != drone.team and drone.is_alive]
 
         bases = [(base, self.distance_to(base)) for base in self.scene.motherships if
                  base.team != self.team and base.is_alive]
         bases.sort(key=lambda x: x[1])
-        enemies.sort(key=lambda x: x[1])
+        enemies.sort(key=lambda x: x[2])
 
+        basa = None
+        enemy = None
         if len(enemies) > 0:
             if self.job == 'fighter':
                 chosen_one = enemies[0]
-                self.target = chosen_one[0]
-                return self.target
-        elif len(bases) > 0:
-            if self.job == 'fighter':
-                chosen_one = bases.pop(0)
-                self.target = chosen_one[0]
-                return self.target
+                enemy = chosen_one[0]
 
+        if len(bases) > 0:
+            if self.job == 'fighter':
+                chosen_one = bases[0]
+                basa = chosen_one[0]
+
+
+
+        if len(enemies) <= 1 and len(bases) >= 1:
+            self.target = basa
+            if self.id == 1:
+                self.job = 'worker'
+            return self.target
+        elif len(enemies) > 0 and len(bases) == 0:
+            self.target = enemy
+            if self.id == 2:
+                self.job = 'worker'
+            return self.target
         elif len(enemies) == 0 and len(bases) == 0:
             self.job = 'worker'
+            self.target = self.my_mothership
+            return self.target
+
+        else:
+            self.target = enemy
+            return self.target
 
     def get_place_for_attack(self, soldier, target):
 
@@ -80,7 +111,7 @@ class GlazovDrone(Drone):
         return Point(target.x + vec.x, target.y + vec.y)
 
     def valide_place(self, point: Point):
-        is_valide = 0 < point.x < theme.FIELD_WIDTH - 50 and 0 < point.y < theme.FIELD_HEIGHT - 50
+        is_valide = 60 < point.x < theme.FIELD_WIDTH - 60 and 60 < point.y < theme.FIELD_HEIGHT - 60
         for partner in self.my_team:
             if not partner.is_alive or partner is self:
                 continue
@@ -92,9 +123,6 @@ class GlazovDrone(Drone):
         not_empty_asteroids = [asteroid for asteroid in self.scene.asteroids if not asteroid.is_empty]
         not_empty_asteroids.extend([mothership for mothership in self.scene.motherships
                                     if not mothership.is_alive and not mothership.is_empty])
-        # TODO - Убирайте неиспользуемый код. Если что в коммитах можно будет найти
-        # not_empty_asteroids.extend(
-        #     [drone for drone in self.scene.drones if not drone.is_alive and not drone.is_empty])
 
         for delete in self.used:
             if delete in not_empty_asteroids:
@@ -120,71 +148,90 @@ class GlazovDrone(Drone):
     def on_born(self):
         self.my_team.append(self)
         if self.job == 'worker':
+            self.start_destination = Point(self.destinations[self.id][0], self.destinations[self.id][1])
             self.destination = self._get_my_asteroid(dist='distance_near')
             self.move_at(self.destination)
 
         if self.job == 'fighter':
-            self.get_target_and_move()
+            self.start_destination = Point(self.destinations[self.id][0], self.destinations[self.id][1])
+            self.move_at(self.start_destination)
 
     def turn_to(self, target, speed=None):
         if not self.is_alive:
             return
         super().turn_to(target, speed=speed)
 
-
-
     def on_hearbeat(self):
-        if self.job == 'fighter':
-            if self.destination and self.target:
-                if str(self.coord) == str(self.destination):
-                    if self.target.is_alive and self.distance_to(self.target) <= 580 and self.valide_place(self.coord):
-                        self.turn_to(self.target)
-                        if self.valide_place(self.coord):
-                            self.gun.shot(self.target)
-                        else:
-                            self.get_target_and_move()
+        if self.health <= 66:
+            self.condition = 'wounded'
+            self.destination = self.my_mothership
+            if str(self.coord) != str(self.destination):
+                self.move_at(self.destination)
 
-                    else:
-                        self.target = None
-                        self.destination = None
-                        self.get_target_and_move()
+        elif self.health >= 95 and self.condition == 'wounded':
+            self.condition = 'normal'
+            self.destination = None
+            self.target = None
+
+            if self.job == 'worker':
+                if self.payload < 90 :
+                    self.destination = self._get_my_asteroid(dist='distance_near')
                 else:
-                    if not self.target:
-                        self.get_target()
-                        self.get_place_for_attack(self, self.target)
+                    self.destination = self.my_mothership
+                self.move_at(self.destination)
 
-                    self.get_target()
-                    self.move_at(self.destination)
+            if self.job == 'fighter':
+                self.destination = None
+                self.target = None
+
+        if str(self.start_destination) == str(self.coord) and not self.ready and self.job == 'fighter':
+            self.destination = None
+            self.target = None
+            self.ready = True
+
+
+        elif self.job == 'fighter' and self.condition == 'normal' and self.ready:
+
+            if not self.target or not self.target.is_alive: self.target = self.get_target()
+            if not self.destination: self.destination = self.get_place_for_attack(self, self.target)
+            if str(self.coord) != str(self.destination):
+                self.move_at(self.destination)
+
+            elif self.distance_to(self.target) > 580:
+                self.destination = None
             else:
-                self.get_target()
-                self.get_place_for_attack(self, self.target)
+                if str(self.coord) != str(self.destination):
+                    self.move_at(self.destination)
+                if self.distance_to(self.my_mothership) > 120:
+                        self.vector = Vector.from_points(point1=self.coord, point2=self.target.coord)
+                        # self.turn_to(self.target)
+                        self.gun.shot(self.target)
 
-        if self.job == 'worker' and self.bornt == 0:
+                else:
+                    self.destination = None
+            if hasattr(self.target, 'is_alive'):
+                if not self.target.is_alive:
+                    self.target = None
+                    self.destination = None
+            else:
+                self.destination = None
+
+        elif self.job == 'worker' and self.bornt == 0:
             self.target = self._get_my_asteroid(dist='distance_near')
             self.move_at(self.target)
             self.bornt = 1
 
     def get_target_and_move(self):
-        if self.health <= 75:
-            self.destination = self.my_mothership
-            self.move_at(self.destination)
-
         self.target = self.get_target()
         if isinstance(self.target, GameObject):
-            if self.target.is_alive or self.target.payload > 0:
-                self.destination = self.get_place_for_attack(self, self.target)
-                self.move_at(self.destination)
+            self.destination = self.get_place_for_attack(self, self.target)
 
     def on_wake_up(self):
-        if self.health <= 75:
-            self.move_at(Point(90, 90))
-
-        if self.job == 'worker' and self.payload < 90 and self.target.payload < 1:
-            self.target = self._get_my_asteroid(dist='distance_near')
-            self.move_at(self.target)
-        else:
-            self.target = self.my_mothership
-            self.move_at(self.target)
+        if self.job == 'worker':
+            if self.payload < 90 and self.target.payload < 1:
+                self.target = self._get_my_asteroid(dist='distance_near')
+                self.move_at(self.target)
+                self.move_at(self.target)
 
     def on_stop_at_asteroid(self, asteroid):
         if self.job == 'worker':
@@ -192,12 +239,14 @@ class GlazovDrone(Drone):
 
     def on_load_complete(self):
         if self.job == 'worker':
-            if self.payload < 90 and self.target.payload <= 0:
-                while self.target.payload == 0:
-                    self.target = self._get_my_asteroid(dist='distance_near')
-                self.move_at(self.target)
-            else:
-                self.move_at(self.my_mothership)
+            if hasattr(self.target, 'payload'):
+                if self.payload < 90 and self.target.payload <= 0:
+                    while self.target.payload == 0:
+                        self.target = self._get_my_asteroid(dist='distance_near')
+                    self.move_at(self.target)
+                else:
+                    self.move_at(self.my_mothership)
+            self.move_at(self.my_mothership)
 
     def on_stop_at_mothership(self, mothership):
         if self.job == 'worker' and mothership == self.my_mothership:
@@ -205,15 +254,15 @@ class GlazovDrone(Drone):
         elif self.job == 'worker' and mothership != self.my_mothership:
             self.load_from(mothership)
 
-        if self.job == 'fighter' and self.health > 90:
-            self.get_target_and_move()
-
     def on_unload_complete(self):
         if self.job == 'worker':
-            while self.target.payload == 0 and self.target is not self.my_mothership:
+            if hasattr(self.target, 'payload'):
+                while self.target.payload == 0 and self.target is not self.my_mothership:
+                    self.target = self._get_my_asteroid(dist='distance_near')
+                self.move_at(self.target)
+            else:
                 self.target = self._get_my_asteroid(dist='distance_near')
-
-            self.move_at(self.target)
+                self.move_at(self.target)
 
     def __max_distance(self, not_empty_asteroids):
         max_distance = 0
