@@ -13,9 +13,9 @@ NUMBER_OF_DRONES = 5
 
 if __name__ == '__main__':
     scene = SpaceField(
-        field=(900, 900),
-        speed=5,
-        asteroids_count=27,
+        field=(1200, 600),
+        speed=3,
+        asteroids_count=7,
         can_fight=True,
     )
     team_1 = [GlazovDrone() for _ in range(NUMBER_OF_DRONES)]
@@ -25,3 +25,5 @@ if __name__ == '__main__':
     scene.go()
 
 # TODO - Побеждать девастаторов чаще, чем проигрывать. БЕЗ ЧИТЕРСТВА!
+#  Стартовая позиция может быть в любом из 4х углов
+#  Поле тоже может быть любого размера

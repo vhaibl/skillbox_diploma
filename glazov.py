@@ -6,8 +6,8 @@ from robogame_engine import GameObject
 from robogame_engine.geometry import Point, Vector
 from robogame_engine.theme import theme
 
-theme.FIELD_WIDTH = 900
-theme.FIELD_HEIGHT = 600
+# theme.FIELD_WIDTH = 900
+# theme.FIELD_HEIGHT = 600
 
 
 class GlazovDrone(Drone):
@@ -52,6 +52,11 @@ class GlazovDrone(Drone):
 
         basa = None
         enemy = None
+        # TODO - Попробуйте попрактиковать паттерн Стратегия
+        #  https://refactoring.guru/ru/design-patterns/strategy/python/example
+        #  Предпосылки: в зависимости от строковой переменной self.job логика принятия решений в ключевых
+        #  точках раздваивается с помощью if. Было бы удобнее принимать стратегические решения, отдавая
+        #  детали реализации в текущую стратегию
         if len(enemies) > 0:
             if self.job == 'fighter':
                 chosen_one = enemies[0]
@@ -61,8 +66,6 @@ class GlazovDrone(Drone):
             if self.job == 'fighter':
                 chosen_one = bases[0]
                 basa = chosen_one[0]
-
-
 
         if len(enemies) <= 1 and len(bases) >= 1:
             self.target = basa
@@ -157,18 +160,22 @@ class GlazovDrone(Drone):
             self.move_at(self.start_destination)
 
     def turn_to(self, target, speed=None):
+
+        # TODO - Мертвяки не развернутся, можно не проверять
         if not self.is_alive:
             return
         super().turn_to(target, speed=speed)
 
     def on_hearbeat(self):
         if self.health <= 66:
+            # TODO - Для понимания алгоритма было бы хорошо вынести код ветки в отдедльный метод с понятным названием
             self.condition = 'wounded'
             self.destination = self.my_mothership
             if str(self.coord) != str(self.destination):
                 self.move_at(self.destination)
 
         elif self.health >= 95 and self.condition == 'wounded':
+            # TODO - Для понимания алгоритма было бы хорошо вынести код ветки в отдедльный метод с понятным названием
             self.condition = 'normal'
             self.destination = None
             self.target = None
@@ -191,7 +198,7 @@ class GlazovDrone(Drone):
 
 
         elif self.job == 'fighter' and self.condition == 'normal' and self.ready:
-
+            # TODO - Для понимания алгоритма было бы хорошо вынести код ветки в отдедльный метод с понятным названием
             if not self.target or not self.target.is_alive: self.target = self.get_target()
             if not self.destination: self.destination = self.get_place_for_attack(self, self.target)
             if str(self.coord) != str(self.destination):
@@ -200,11 +207,12 @@ class GlazovDrone(Drone):
             elif self.distance_to(self.target) > 580:
                 self.destination = None
             else:
+                # TODO - Для понимания алгоритма было бы хорошо вынести код ветки в отдедльный метод с понятным названием
                 if str(self.coord) != str(self.destination):
                     self.move_at(self.destination)
                 if self.distance_to(self.my_mothership) > 120:
-                        self.vector = Vector.from_points(point1=self.coord, point2=self.target.coord)
-                        # self.turn_to(self.target)
+                        # self.vector = Vector.from_points(point1=self.coord, point2=self.target.coord)
+                        self.turn_to(self.target)
                         self.gun.shot(self.target)
 
                 else:
@@ -284,7 +292,8 @@ class GlazovDrone(Drone):
 
     def __avg_distance(self, not_empty_asteroids):
         distance_list = []
-        for asteroid in not_empty_asteroids: distance_list.append((self.distance_to(asteroid), asteroid))
+        for asteroid in not_empty_asteroids:
+            distance_list.append((self.distance_to(asteroid), asteroid))
         distance_list = sorted(distance_list)
         half_length = (len(distance_list) // 2)
         avg = distance_list[half_length][1]
