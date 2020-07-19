@@ -6,7 +6,7 @@ from astrobox.space_field import SpaceField
 from stage_03_harvesters.driller import DrillerDrone
 from stage_03_harvesters.reaper import ReaperDrone
 from stage_04_soldiers.devastator import DevastatorDrone
-from glazov import GlazovDrone
+from probe4 import GlazovDrone
 from vader import VaderDrone
 
 NUMBER_OF_DRONES = 5
