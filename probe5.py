@@ -7,11 +7,6 @@ from robogame_engine.geometry import Point, Vector
 from robogame_engine.theme import theme
 
 
-# TODO - Убирайте закомментированный код
-# theme.FIELD_WIDTH = 900
-# theme.FIELD_HEIGHT = 600
-
-
 class GlazovDrone(Drone):
     my_team = []
 
@@ -32,13 +27,18 @@ class GlazovDrone(Drone):
             4: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120)),
             5: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120))}
 
+        # TODO - Здесь будет что-то вроде
         if self.id == 1:
-            self.job = 'worker'
+            self.job = Worker()
         else:
-            self.job = 'fighter'
+            self.job = Fighter()
+        # TODO - ... тогда в последствии можно бует из рабочего сделать бойца так self.job = Fighter()
         self.bornt = 0
 
     def get_target(self):
+        # TODO - Этот метод станет абстрактным
+        #  В каждой стратегии будет своя реализация
+        #  Вызывать self.job.get_target()
 
         enemies = [(drone, self.distance_to(drone), drone.id) for drone in self.scene.drones if
                    self.team != drone.team and drone.is_alive]
@@ -50,11 +50,6 @@ class GlazovDrone(Drone):
 
         basa = None
         enemy = None
-        # TODO - Попробуйте попрактиковать паттерн Стратегия
-        #  https://refactoring.guru/ru/design-patterns/strategy/python/example
-        #  Предпосылки: в зависимости от строковой переменной self.job логика принятия решений в ключевых
-        #  точках раздваивается с помощью if. Было бы удобнее принимать стратегические решения, отдавая
-        #  детали реализации в текущую стратегию
         if len(enemies) > 0:
             if self.job == 'fighter':
                 chosen_one = enemies[0]
@@ -85,6 +80,7 @@ class GlazovDrone(Drone):
             return self.target
 
     def get_place_for_attack(self, soldier, target):
+        # TODO - например метод для атаки будет только у бойцовской стратегии
 
         if isinstance(target, GameObject):
             vec = Vector.from_points(target.coord, soldier.coord)
@@ -148,31 +144,33 @@ class GlazovDrone(Drone):
 
     def on_born(self):
         self.my_team.append(self)
-        if self.job == 'worker':
-            self.start_destination = Point(self.destinations[self.id][0], self.destinations[self.id][1])
-            self.destination = self._get_my_asteroid(dist='distance_near')
-            self.move_at(self.destination)
+        # TODO - Здесь можем просто реализовать выбор следующего действия
+        #  и для каждой стратегии будет свой алгоритм
+        self.job.next_action()
 
-        if self.job == 'fighter':
-            self.start_destination = Point(self.destinations[self.id][0], self.destinations[self.id][1])
-            self.move_at(self.start_destination)
-
-    def turn_to(self, target, speed=None):
-        # TODO - По-моему этот метод ничем не отличается от родительского. Можно убрать
-        super().turn_to(target, speed=speed)
+        # if self.job == 'worker':
+        #     self.start_destination = Point(self.destinations[self.id][0], self.destinations[self.id][1])
+        #     self.destination = self._get_my_asteroid(dist='distance_near')
+        #     self.move_at(self.destination)
+        #
+        # if self.job == 'fighter':
+        #     self.start_destination = Point(self.destinations[self.id][0], self.destinations[self.id][1])
+        #     self.move_at(self.start_destination)
 
     def on_hearbeat(self):
+        # TODO - Этот метод будет общим для всех стратегий, т.е. принадлежать классу дрона
         if self.health <= 66:
             self.go_healing()
 
         elif self.health >= 95 and self.condition == 'wounded':
             self.return_after_healing()
 
+        # TODO - А делее - в зависимости от стратегии
+        #  тоже можно придумать метод для каждой стратегии. Например self.job.doing_hearbeat()
         if str(self.start_destination) == str(self.coord) and not self.ready and self.job == 'fighter':
             self.destination = None
             self.target = None
             self.ready = True
-
 
         elif self.job == 'fighter' and self.condition == 'normal' and self.ready:
             self.fighter_get_target_move_and_attack()
@@ -229,12 +227,6 @@ class GlazovDrone(Drone):
         self.destination = self.my_mothership
         if str(self.coord) != str(self.destination):
             self.move_at(self.destination)
-
-    # TODO - Убирайте закомментированный код. Его всегда можно подссмотреть в коммитах
-    # def get_target_and_move(self):
-    #     self.target = self.get_target()
-    #     if isinstance(self.target, GameObject):
-    #         self.destination = self.get_place_for_attack(self, self.target)
 
     def on_wake_up(self):
         if self.job == 'worker':
