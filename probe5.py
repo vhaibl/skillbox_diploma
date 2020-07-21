@@ -36,7 +36,7 @@ class GlazovDrone(Drone):
             4: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120)),
             5: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120))}
 
-        # TODO - Здесь будет что-то вроде
+        #  - Здесь будет что-то вроде
 
 
     @abstractmethod
@@ -53,14 +53,14 @@ class GlazovDrone(Drone):
             self.job = Worker(self)
         else:
             self.job = Fighter(self)
-            # TODO - ... тогда в последствии можно бует из рабочего сделать бойца так self.job = Fighter()
+            #  - ... тогда в последствии можно бует из рабочего сделать бойца так self.job = Fighter()
         self.bornt = 0
-        # TODO - Здесь можем просто реализовать выбор следующего действия
+        #  - Здесь можем просто реализовать выбор следующего действия
         #  и для каждой стратегии будет свой алгоритм
         self.job.next_action()
 
     def on_hearbeat(self):
-        # TODO - Этот метод будет общим для всех стратегий, т.е. принадлежать классу дрона
+        #  - Этот метод будет общим для всех стратегий, т.е. принадлежать классу дрона
         if self.health <= 66:
             self.go_healing()
 
@@ -68,13 +68,15 @@ class GlazovDrone(Drone):
             self.job.return_after_healing()
 
         self.job.doing_heartbeat()
-        # TODO - А делее - в зависимости от стратегии
+        #  - А делее - в зависимости от стратегии
         #  тоже можно придумать метод для каждой стратегии. Например self.job.doing_hearbeat()
 
+    # TODO - Этот метд д.б. у self.job
     @abstractmethod
     def doing_heartbeat(self):
         pass
 
+    # TODO - И этот метд д.б. у self.job
     @abstractmethod
     def return_after_healing(self):
         pass
@@ -85,23 +87,20 @@ class GlazovDrone(Drone):
         if str(self.coord) != str(self.job.destination):
             self.move_at(self.job.destination)
 
-    @abstractmethod
+    # TODO - В on_методах реализуем логику общую для всех типов или просто self.next_action()
+    #  или же что-то значимое действие и дальше self.job.next_action()
     def on_wake_up(self):
         pass
 
-    @abstractmethod
     def on_stop_at_asteroid(self, asteroid):
         self.job.on_stop_at_asteroid(asteroid)
 
-    @abstractmethod
     def on_load_complete(self):
         self.job.on_load_complete()
 
-    @abstractmethod
     def on_stop_at_mothership(self, mothership):
         self.job.on_stop_at_mothership(mothership)
 
-    @abstractmethod
     def on_unload_complete(self):
         self.job.on_unload_complete()
 
@@ -114,6 +113,10 @@ class GlazovDrone(Drone):
 
 
 class Worker(GlazovDrone):
+    # TODO - Worker не будет наследовать GlazovDrone
+    #  тут скорее нужно наследоваться от абстрактного класса
+    #  Worker будет храниться в self.job  класса дрона
+
     def __init__(self, unit: GlazovDrone):
         self.unit = unit
         self.bornt = 0
@@ -126,6 +129,7 @@ class Worker(GlazovDrone):
         self.start_destination = None
 
     def stats(self):
+        # TODO - Этот метод похоже должен быть общим для всех job
         if isinstance(self.unit.target, GameObject):
             if 'empty' not in self.unit.stats_dict[self.unit.id]:
                 self.unit.stats_dict[self.unit.id]['empty'] = 0
@@ -167,6 +171,7 @@ class Worker(GlazovDrone):
         return asteroid
 
     def move_at(self, target, speed=None):
+        # TODO - Этот метод похоже должен быть общим для всех job
         if not self.unit.is_alive:
             return
         self.unit.stats()
