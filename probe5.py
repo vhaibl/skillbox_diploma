@@ -15,6 +15,8 @@ class GlazovDrone(Drone):
     def __init__(self, **kwargs):
 
         super().__init__(**kwargs)
+
+        self.gun_range = 600
         self.used = set()
         self.stats_dict = {}
         self.stats_dict[self.id] = {}
@@ -22,22 +24,26 @@ class GlazovDrone(Drone):
         self.target = None
         self.destination = None
         self.ready = False
-        theme.PLASMAGUN_COOLDOWN_TIME = 10
+        self.no_enemies = False
+        # theme.PLASMAGUN_COOLDOWN_TIME = 10
         # self.destinations = {
         #     1: (random.randint(120, theme.FIELD_WIDTH - 300), random.randint(120, theme.FIELD_HEIGHT - 300)),
         #     2: (random.randint(120, theme.FIELD_WIDTH - 300), random.randint(120, theme.FIELD_HEIGHT - 300)),
         #     3: (random.randint(120, theme.FIELD_WIDTH - 300), random.randint(120, theme.FIELD_HEIGHT - 300)),
         #     4: (random.randint(120, theme.FIELD_WIDTH - 300), random.randint(120, theme.FIELD_HEIGHT - 300)),
         #     5: (random.randint(120, theme.FIELD_WIDTH - 300), random.randint(120, theme.FIELD_HEIGHT - 300))}
+        # self.destinations = {
+        #     1: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120)),
+        #     2: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120)),
+        #     3: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120)),
+        #     4: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120)),
+        #     5: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120))}
         self.destinations = {
-            1: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120)),
-            2: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120)),
-            3: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120)),
-            4: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120)),
-            5: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120))}
-
-        #  - Здесь будет что-то вроде
-
+            1: (90, 230),
+            2: (270, 155),
+            3: (230, 230),
+            4: (160, 230),
+            5: (270, 75)}
 
     @abstractmethod
     def get_target(self):
@@ -53,14 +59,15 @@ class GlazovDrone(Drone):
             self.job = Worker(self)
         else:
             self.job = Fighter(self)
-            #  - ... тогда в последствии можно бует из рабочего сделать бойца так self.job = Fighter()
         self.bornt = 0
         #  - Здесь можем просто реализовать выбор следующего действия
         #  и для каждой стратегии будет свой алгоритм
         self.job.next_action()
 
     def on_hearbeat(self):
-        #  - Этот метод будет общим для всех стратегий, т.е. принадлежать классу дрона
+        if self.no_enemies:
+            self.job = Worker(self)
+
         if self.health <= 66:
             self.go_healing()
 
@@ -68,8 +75,6 @@ class GlazovDrone(Drone):
             self.job.return_after_healing()
 
         self.job.doing_heartbeat()
-        #  - А делее - в зависимости от стратегии
-        #  тоже можно придумать метод для каждой стратегии. Например self.job.doing_hearbeat()
 
     # TODO - Этот метд д.б. у self.job
     @abstractmethod
@@ -104,12 +109,28 @@ class GlazovDrone(Drone):
     def on_unload_complete(self):
         self.job.on_unload_complete()
 
-    # @abstractmethod
-    # def move_at(self, target, speed=None):
-    #     pass
+    def move_at(self, target, speed=None):
+        self.stats()
+        super().move_at(target, speed=speed)
+        if self.target == self.my_mothership and self.is_empty and self.job == Worker(self):
+            print(
+                f'Дрон {self.id} пролетел {self.stats_dict[self.id]["empty"]} ед. пустым, '
+                f'{self.stats_dict[self.id]["partial"]} ед. частично загруженным,'
+                f' {self.stats_dict[self.id]["full"]} ед. полностью загруженным')
 
     def stats(self):
-        pass
+        if isinstance(self.target, GameObject):
+            if 'empty' not in self.stats_dict[self.id]:
+                self.stats_dict[self.id]['empty'] = 0
+                self.stats_dict[self.id]['partial'] = 0
+                self.stats_dict[self.id]['full'] = 0
+            if self.is_empty:
+                self.stats_dict[self.id]['empty'] += int(self.distance_to(self.target))
+            if self.free_space > 0 and self.free_space < 100:
+                self.stats_dict[self.id]['partial'] += int(self.distance_to(self.target))
+            if self.is_full:
+                self.stats_dict[self.id]['full'] += int(self.distance_to(self.my_mothership))
+            return self.stats_dict
 
 
 class Worker(GlazovDrone):
@@ -120,28 +141,8 @@ class Worker(GlazovDrone):
     def __init__(self, unit: GlazovDrone):
         self.unit = unit
         self.bornt = 0
-        # self.destinations = {
-        #     1: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120)),
-        #     2: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120)),
-        #     3: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120)),
-        #     4: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120)),
-        #     5: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120))}
         self.start_destination = None
-
-    def stats(self):
-        # TODO - Этот метод похоже должен быть общим для всех job
-        if isinstance(self.unit.target, GameObject):
-            if 'empty' not in self.unit.stats_dict[self.unit.id]:
-                self.unit.stats_dict[self.unit.id]['empty'] = 0
-                self.unit.stats_dict[self.unit.id]['partial'] = 0
-                self.unit.stats_dict[self.unit.id]['full'] = 0
-            if self.unit.is_empty:
-                self.unit.stats_dict[self.unit.id]['empty'] += int(self.unit.distance_to(self.unit.target))
-            if self.unit.free_space > 0 and self.unit.free_space < 100:
-                self.unit.stats_dict[self.unit.id]['partial'] += int(self.unit.distance_to(self.unit.target))
-            if self.is_full:
-                self.unit.stats_dict[self.id]['full'] += int(self.unit.distance_to(self.unit.my_mothership))
-            return self.unit.stats_dict
+        self.enemy_count = 0
 
     def _get_my_asteroid(self, dist):
         soldier = self.unit
@@ -170,20 +171,9 @@ class Worker(GlazovDrone):
         self.unit.used.add(asteroid)
         return asteroid
 
-    def move_at(self, target, speed=None):
-        # TODO - Этот метод похоже должен быть общим для всех job
-        if not self.unit.is_alive:
-            return
-        self.unit.stats()
-        super().move_at(target, speed=speed)
-        if self.unit.target == self.unit.my_mothership and self.unit.is_empty:  # and self.job is 'worker':
-            print(
-                f'Дрон {self.unit.id} пролетел {self.unit.stats_dict[self.unit.id]["empty"]} ед. пустым, '
-                f'{self.unit.stats_dict[self.unit.id]["partial"]} ед. частично загруженным,'
-                f' {self.unit.stats_dict[self.unit.id]["full"]} ед. полностью загруженным')
-
     def next_action(self):
-        self.unit.start_destination = Point(self.unit.destinations[self.unit.id][0], self.unit.destinations[self.unit.id][1])
+        self.unit.start_destination = Point(self.unit.destinations[self.unit.id][0],
+                                            self.unit.destinations[self.unit.id][1])
         self.unit.destination = self._get_my_asteroid(dist='distance_near')
         self.unit.move_at(self.unit.destination)
         # return self.start_destination
@@ -203,7 +193,7 @@ class Worker(GlazovDrone):
         soldier = self.unit
         if soldier.payload < 90 and soldier.target.payload < 1:
             soldier.target = self._get_my_asteroid(dist='distance_near')
-            self.move_at(soldier.target)
+            # self.move_at(soldier.target)
             self.move_at(soldier.target)
 
     def on_stop_at_asteroid(self, asteroid):
@@ -298,117 +288,102 @@ class Fighter(GlazovDrone):
         self.destination = None
         self.ready = False
         self.bornt = 0
-
-        self.destinations = {
-            1: (random.randint(120, theme.FIELD_WIDTH // 4), random.randint(120, theme.FIELD_HEIGHT // 4)),
-            2: (random.randint(120, theme.FIELD_WIDTH // 4), random.randint(120, theme.FIELD_HEIGHT // 4)),
-            3: (random.randint(120, theme.FIELD_WIDTH // 4), random.randint(120, theme.FIELD_HEIGHT // 4)),
-            4: (random.randint(120, theme.FIELD_WIDTH // 4), random.randint(120, theme.FIELD_HEIGHT // 4)),
-            5: (random.randint(120, theme.FIELD_WIDTH // 4), random.randint(120, theme.FIELD_HEIGHT // 4))}
-
         self.start_destination = None
 
     def next_action(self):
         soldier = self.unit
         soldier.start_destination = Point(soldier.destinations[soldier.id][0], soldier.destinations[soldier.id][1])
         soldier.move_at(soldier.start_destination)
-        return self.start_destination
-        # soldier.start_destination = Point(90,90)
+        soldier.destination = None
+
+        # return self.start_destination
+
     def return_after_healing(self):
         soldier = self.unit
         soldier.condition = 'normal'
-        soldier.destination = None
+        soldier.destination = Point(soldier.destinations[soldier.id][0], soldier.destinations[soldier.id][1])
         soldier.target = None
 
-    def fighter_get_target_move_and_attack(self):
+    def fighter_actions(self):
         soldier = self.unit
-        if not soldier.target or not soldier.target.is_alive:
-            while not soldier.target:
-                soldier.target = self.get_target()
+        if not soldier.target:
+            soldier.target = self.get_target()
+        if not soldier.target.is_alive:
+            soldier.target = self.get_target()
         if not soldier.destination:
-            # while not soldier.destination:
-                soldier.destination = self.get_place_for_attack(soldier, soldier.target)
-        print(soldier.target, soldier.destination)
-        if str(soldier.coord) != str(soldier.destination):
-            soldier.move_at(soldier.destination)
+            soldier.destination = self.get_place_for_attack(soldier, soldier.target)
 
-        elif soldier.distance_to(soldier.target) > 580:
-            soldier.destination = None
-        else:
-            self.fighter_attack()
         if hasattr(soldier.target, 'is_alive'):
+
+            if str(soldier.coord) != str(soldier.destination):
+                soldier.move_at(soldier.destination)
+                return
+            if soldier.distance_to(soldier.target) > soldier.gun_range and str(soldier.coord) == str(
+                    soldier.destination):
+                soldier.destination = self.get_place_for_attack(soldier, soldier.target)
+                soldier.move_at(soldier.destination)
+
+                return
+            # if self.friendly_fire(soldier.target):
+            #     soldier.destination = None
+                # soldier.destination = self.get_place_for_attack(soldier, soldier.target)
+                # soldier.move_at(soldier.destination)
+                return
+            if soldier.distance_to(soldier.target) <= soldier.gun_range and str(soldier.coord) == str(
+                    soldier.destination):
+                if not self.friendly_fire(soldier.target):
+                    self.fighter_attack()
+                    return
+                else:
+                    self.destination = None
+                    # return
+            for drones in soldier.my_team:
+                if soldier.near(drones):
+                    soldier.destination = None
+                    return
             if not soldier.target.is_alive:
                 soldier.target = None
                 soldier.destination = None
+                return
         else:
+            soldier.target = None
             soldier.destination = None
+        #
+        # if hasattr(soldier.target, 'is_alive'):
+        #         soldier.destination = None
+        #     # if self.friendly_fire(soldier.target):
+        #     #     self.destination = None
+
+        # if soldier.distance_to(soldier.target) > 580 and not self.valide_place(soldier.coord):
+        #     soldier.destination = self.get_place_for_attack(soldier, soldier.target)
+        #
+        # if str(soldier.coord) == str(soldier.destination) : #and soldier.distance_to(soldier.target) < 580:
+        #
+        #     self.fighter_attack()
+        # else:
+        #     soldier.move_at(soldier.destination)
+        #
+        # soldier.destination = None
+        # else:
+        #     soldier.destination = self.get_place_for_attack(soldier, soldier.target)
+        #     # soldier.destination = None
 
     def fighter_attack(self):
         soldier = self.unit
-        if str(soldier.coord) != str(soldier.destination):
-            soldier.move_at(soldier.destination)
-        if soldier.distance_to(soldier.my_mothership) > 120:
-                soldier.turn_to(soldier.target)
-                if not self.friendly_fire(soldier.target):
-                    soldier.gun.shot(soldier.target)
-                else:
-                    soldier.destination = None
-
-
-        else:
-            soldier.destination = None
+        if soldier.distance_to(soldier.my_mothership) > 90:
+            soldier.turn_to(soldier.target)
+            soldier.gun.shot(soldier.target)
 
     def doing_heartbeat(self):
         soldier = self.unit
         # soldier.move_at(soldier.start_destination)
+
         if str(soldier.start_destination) == str(soldier.coord) and not soldier.ready:
             soldier.destination = None
             soldier.target = None
             soldier.ready = True
-
-        elif soldier.condition == 'normal' and soldier.ready:
-            self.fighter_get_target_move_and_attack()
-
-    def get_target(self):
-        # TODO - Этот метод станет абстрактным
-        #  В каждой стратегии будет своя реализация
-        #  Вызывать self.job.get_target()
-        soldier = self.unit
-        enemies = [(drone, soldier.distance_to(drone), drone.id) for drone in soldier.scene.drones if
-                   soldier.team != drone.team and drone.is_alive]
-        bases = [(base, soldier.distance_to(base)) for base in soldier.scene.motherships if
-                 base.team != soldier.team and base.is_alive]
-        bases.sort(key=lambda x: x[1])
-        enemies.sort(key=lambda x: x[2])
-
-        basa = None
-        enemy = None
-        if len(enemies) > 0:
-            chosen_one = enemies[0]
-            enemy = chosen_one[0]
-
-        if len(bases) > 0:
-            chosen_one = bases[0]
-            basa = chosen_one[0]
-
-        if len(enemies) <= 1 and len(bases) >= 1:
-            soldier.target = basa
-            if soldier.id == 1:
-                soldier = Worker(self)
-            return soldier.target
-        elif len(enemies) > 0 and len(bases) == 0:
-            soldier.target = enemy
-            if soldier.id == 2:
-                soldier = Worker(self)
-            return soldier.target
-        elif len(enemies) == 0 and len(bases) == 0:
-            soldier.job = Worker(self)
-            soldier.target = soldier.my_mothership
-            return soldier.target
-
-        else:
-            soldier.target = enemy
-            return soldier.target
+        if soldier.condition == 'normal' and soldier.ready:
+            self.fighter_actions()
 
     def get_place_for_attack(self, soldier, target):
 
@@ -418,13 +393,12 @@ class Fighter(GlazovDrone):
             vec = Vector.from_points(target, soldier.coord)
         else:
             raise Exception("target must be GameObject or Point!".format(target, ))
-
         dist = vec.module
         _koef = 1 / dist
         norm_vec = Vector(vec.x * _koef, vec.y * _koef)
-        vec_gunshot = norm_vec * min(580, int(dist))
+        vec_gunshot = norm_vec * min(self.unit.gun_range, int(dist))
         purpose = Point(target.coord.x + vec_gunshot.x, target.coord.y + vec_gunshot.y)
-        angles = [0, 60, -60, 30, -30]
+        angles = [0, 60, -60, 30, -30, 15, -15, 45, -45 ]
         random.shuffle(angles)
         for ang in angles:
             place = self.get_place_near(purpose, target, ang)
@@ -439,16 +413,16 @@ class Fighter(GlazovDrone):
 
     def valide_place(self, point: Point):
         soldier = self.unit
-        is_valide = 60 < point.x < theme.FIELD_WIDTH - 60 and 60 < point.y < theme.FIELD_HEIGHT - 60
+        is_valide = 60 < point.x < (theme.FIELD_WIDTH - 60) and 60 < point.y < (theme.FIELD_HEIGHT - 60)
         for partner in soldier.my_team:
-            if not partner.is_alive or partner is self:
+            if not partner.is_alive or partner is self.unit:
                 continue
-            is_valide = is_valide and (partner.distance_to(point) >= 60)
+            is_valide = is_valide and (partner.distance_to(point) >= 50)
         return is_valide
 
     def friendly_fire(self, enemy):
         for i in range(int(self.unit.distance_to(enemy))):
-            rab = math.sqrt((int(enemy.coord.x) - int(self.unit.coord.x))** 2 +
+            rab = math.sqrt((int(enemy.coord.x) - int(self.unit.coord.x)) ** 2 +
                             (int(enemy.coord.y) - int(self.unit.coord.y)) ** 2)
 
             k = i / rab
@@ -457,8 +431,6 @@ class Fighter(GlazovDrone):
             drone_list_copy = self.unit.my_team.copy()
             drone_list_copy.remove(self.unit)
             drone_list_copy = [drone for drone in drone_list_copy if drone.is_alive]
-            print('my alive drones',drone_list_copy)
-
             for drone in drone_list_copy:
                 drone.radius = 50
                 if drone.near(Point(c_x, c_y)) or self.unit.my_mothership.near(Point(c_x, c_y)):
@@ -470,5 +442,54 @@ class Fighter(GlazovDrone):
 
     def on_stop_at_asteroid(self, asteroid):
         pass
+
     def on_stop_at_mothership(self, mothership):
         pass
+
+    def get_target(self):
+        soldier = self.unit
+        enemies = [(drone, soldier.distance_to(drone), drone.id) for drone in self.scene.drones if
+                   soldier.team != drone.team and drone.is_alive]
+        bases = [(base, soldier.distance_to(base)) for base in soldier.scene.motherships if
+                 base.team != soldier.team and base.is_alive]
+        bases.sort(key=lambda x: x[1])
+        enemies.sort(key=lambda x: x[1])
+
+        basa = None
+        enemy = None
+
+        self.enemy_count = len(enemies)
+
+        if self.enemy_count > 0:
+            chosen_one = enemies[0]
+            enemy = chosen_one[0]
+
+        if len(bases) > 0:
+            chosen_one = bases[0]
+            basa = chosen_one[0]
+
+        if self.enemy_count <= 1 and len(bases) >= 1:
+            soldier.gun_range = 550
+            soldier.target = basa
+            if soldier.id == 2:
+                soldier.no_enemies = True
+            return soldier.target
+        elif self.enemy_count > 0 and len(bases) == 0:
+            if soldier.id == 2:
+                soldier.no_enemies = True
+            soldier.target = enemy
+            return soldier.target
+        elif self.enemy_count == 0 and len(bases) == 0:
+            self.unit.no_enemies = True
+            soldier.target = None
+            return soldier.target
+
+        else:
+            # for base in self.scene.motherships:
+
+                # if enemy.near(base):
+                #     print(base)
+                #     soldier.target = base
+                # else:
+            soldier.target = enemy
+            return soldier.target

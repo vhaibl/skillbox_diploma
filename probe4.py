@@ -185,7 +185,7 @@ class Fighter(Drones):
         if str(self.coord) != str(self.destination):
             self.move_at(self.destination)
         if self.distance_to(self.my_mothership) > 120:
-            # self.vector = Vector.from_points(point1=self.coord, point2=self.target.coord)
+            self.vector = Vector.from_points(point1=self.coord, point2=self.target.coord)
             self.turn_to(self.target)
             self.gun.shot(self.target)
 
