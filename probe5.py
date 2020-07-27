@@ -53,7 +53,7 @@ class GlazovDrone(Drone):
         else:
             self.job = Fighter(self)
 
-        self.job.next_action()
+        self.job.after_born()
 
     def on_hearbeat(self):
         if self.no_enemies:
@@ -88,7 +88,7 @@ class GlazovDrone(Drone):
         self.job.on_stop_at_mothership(mothership)
 
     def on_unload_complete(self):
-        self.job.on_unload_complete()
+        self.job.next_action()
 
     def move_at(self, target, speed=None):
         self.stats()
@@ -150,6 +150,10 @@ class Worker(GlazovDrone):
         return asteroid
 
     def next_action(self):
+        pass
+
+
+    def after_born(self):
         self.unit.destination = self._get_my_asteroid(dist='distance_near')
         self.unit.move_at(self.unit.destination)
         return self.start_destination
@@ -267,6 +271,9 @@ class Fighter(GlazovDrone):
         self.enemy_count = None
 
     def next_action(self):
+        pass
+
+    def after_born(self):
         soldier = self.unit
         soldier.move_at(soldier.start_destination)
         soldier.destination = None
