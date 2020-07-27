@@ -38,12 +38,20 @@ class GlazovDrone(Drone):
         #     3: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120)),
         #     4: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120)),
         #     5: (random.randint(120, theme.FIELD_WIDTH - 120), random.randint(120, theme.FIELD_HEIGHT - 120))}
+
+        # self.destinations = {
+        #     1: (90, 230),
+        #     2: (270, 155),
+        #     3: (230, 230),
+        #     4: (160, 230),
+        #     5: (270, 75)}
         self.destinations = {
-            1: (90, 230),
-            2: (270, 155),
-            3: (230, 230),
-            4: (160, 230),
-            5: (270, 75)}
+            1: {'x': 1, 'y': 140},
+            2: {'x': 180, 'y': 65},
+            3: {'x': 140, 'y': 140},
+            4: {'x': 70, 'y': 140},
+            5: {'x': 180, 'y': -15}}
+        # self.destination = None
 
     @abstractmethod
     def get_target(self):
@@ -55,7 +63,26 @@ class GlazovDrone(Drone):
 
     def on_born(self):
         self.my_team.append(self)
-        if self.id == 1:
+        self.my_number = len(self.my_team)
+        if self.my_mothership.coord.x <= 100 and self.my_mothership.coord.y <= 100:
+            print('left down')
+            self.start_destination = Point(self.my_mothership.coord.x + self.destinations[self.my_number]['x'],
+                                           self.my_mothership.coord.y + self.destinations[self.my_number]['y'])
+        if self.my_mothership.coord.x <= 100 and self.my_mothership.coord.y > 100:
+            print('left up')
+            self.start_destination = Point(self.my_mothership.coord.x + self.destinations[self.my_number]['x'],
+                                           self.my_mothership.coord.y - self.destinations[self.my_number]['y'])
+        if self.my_mothership.coord.x > 100 and self.my_mothership.coord.y <= 100:
+            print('right down')
+            self.start_destination = Point(self.my_mothership.coord.x - self.destinations[self.my_number]['x'],
+                                           self.my_mothership.coord.y + self.destinations[self.my_number]['y'])
+        #     print(self.start_destination)
+        if self.my_mothership.coord.x > 100 and self.my_mothership.coord.y > 100:
+            print('right up')
+            self.start_destination = Point(self.my_mothership.coord.x - self.destinations[self.my_number]['x'],
+                                           self.my_mothership.coord.y - self.destinations[self.my_number]['y'])
+
+        if self.my_number == 1:
             self.job = Worker(self)
         else:
             self.job = Fighter(self)
@@ -141,7 +168,7 @@ class Worker(GlazovDrone):
     def __init__(self, unit: GlazovDrone):
         self.unit = unit
         self.bornt = 0
-        self.start_destination = None
+        self.start_destination = self.unit.start_destination
         self.enemy_count = 0
 
     def _get_my_asteroid(self, dist):
@@ -172,8 +199,6 @@ class Worker(GlazovDrone):
         return asteroid
 
     def next_action(self):
-        self.unit.start_destination = Point(self.unit.destinations[self.unit.id][0],
-                                            self.unit.destinations[self.unit.id][1])
         self.unit.destination = self._get_my_asteroid(dist='distance_near')
         self.unit.move_at(self.unit.destination)
         # return self.start_destination
@@ -292,16 +317,13 @@ class Fighter(GlazovDrone):
 
     def next_action(self):
         soldier = self.unit
-        soldier.start_destination = Point(soldier.destinations[soldier.id][0], soldier.destinations[soldier.id][1])
         soldier.move_at(soldier.start_destination)
         soldier.destination = None
-
-        # return self.start_destination
 
     def return_after_healing(self):
         soldier = self.unit
         soldier.condition = 'normal'
-        soldier.destination = Point(soldier.destinations[soldier.id][0], soldier.destinations[soldier.id][1])
+        soldier.destination = soldier.start_destination
         soldier.target = None
 
     def fighter_actions(self):
@@ -324,8 +346,8 @@ class Fighter(GlazovDrone):
                 soldier.move_at(soldier.destination)
 
                 return
-            # if self.friendly_fire(soldier.target):
-            #     soldier.destination = None
+                # if self.friendly_fire(soldier.target):
+                #     soldier.destination = None
                 # soldier.destination = self.get_place_for_attack(soldier, soldier.target)
                 # soldier.move_at(soldier.destination)
                 return
@@ -398,7 +420,7 @@ class Fighter(GlazovDrone):
         norm_vec = Vector(vec.x * _koef, vec.y * _koef)
         vec_gunshot = norm_vec * min(self.unit.gun_range, int(dist))
         purpose = Point(target.coord.x + vec_gunshot.x, target.coord.y + vec_gunshot.y)
-        angles = [0, 60, -60, 30, -30, 15, -15, 45, -45 ]
+        angles = [0, 60, -60, 30, -30, 15, -15, 45, -45]
         random.shuffle(angles)
         for ang in angles:
             place = self.get_place_near(purpose, target, ang)
@@ -471,11 +493,11 @@ class Fighter(GlazovDrone):
         if self.enemy_count <= 1 and len(bases) >= 1:
             soldier.gun_range = 550
             soldier.target = basa
-            if soldier.id == 2:
+            if soldier.my_number == 2:
                 soldier.no_enemies = True
             return soldier.target
         elif self.enemy_count > 0 and len(bases) == 0:
-            if soldier.id == 2:
+            if soldier.my_number == 2:
                 soldier.no_enemies = True
             soldier.target = enemy
             return soldier.target
@@ -487,9 +509,9 @@ class Fighter(GlazovDrone):
         else:
             # for base in self.scene.motherships:
 
-                # if enemy.near(base):
-                #     print(base)
-                #     soldier.target = base
-                # else:
+            # if enemy.near(base):
+            #     print(base)
+            #     soldier.target = base
+            # else:
             soldier.target = enemy
             return soldier.target
