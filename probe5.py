@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import math
 import random
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 
 from astrobox.core import Drone
 from robogame_engine import GameObject
@@ -73,13 +73,14 @@ class GlazovDrone(Drone):
         if str(self.coord) != str(self.job.destination):
             self.move_at(self.job.destination)
 
-    # TODO - В on_методах реализуем логику общую для всех типов или просто self.next_action()
-    #  или же что-то значимое действие и дальше self.job.next_action()
     def on_wake_up(self):
-        pass
+        self.job.next_action()
 
     def on_stop_at_asteroid(self, asteroid):
         self.job.on_stop_at_asteroid(asteroid)
+        # TODO - Здесь можно поступить так. Чтобы не реализовывать методы on_stop_at_asteroid и on_load_complete
+        #  у Fight-ров, здесь можно вызвать self.job.next_action() и там реализовать алгоритм у воркеров
+        #  Но это на ваше усмотрение такое решение
 
     def on_load_complete(self):
         self.job.on_load_complete()
@@ -114,11 +115,35 @@ class GlazovDrone(Drone):
             return self.stats_dict
 
 
-class Worker(GlazovDrone):
+class Job(ABC):
+    # TODO - Этот класс используем для объявления обязательств реализации абстрактных методов
 
     def __init__(self, unit: GlazovDrone):
         self.unit = unit
         self.bornt = 0
+        self.destination = None
+
+    @abstractmethod
+    def after_born(self):
+        pass
+
+    @abstractmethod
+    def next_action(self):
+        pass
+
+    @abstractmethod
+    def on_stop_at_asteroid(self):
+        pass
+
+    @abstractmethod
+    def on_stop_at_mothership(self, mothership):
+        pass
+
+
+class Worker(Job):
+
+    def __init__(self, unit: GlazovDrone):
+        super().__init__(unit)
         self.start_destination = self.unit.start_destination
         self.enemy_count = 0
 
@@ -150,8 +175,9 @@ class Worker(GlazovDrone):
         return asteroid
 
     def next_action(self):
+        # TODO - А здесь нужно определить логику. Как минимум этот метод срабатывает у тебя,
+        #  когда дрон разгрузится на базе. Поэтому ничего не делает после разгрузки
         pass
-
 
     def after_born(self):
         self.unit.destination = self._get_my_asteroid(dist='distance_near')
@@ -170,10 +196,11 @@ class Worker(GlazovDrone):
         soldier.move_at(soldier.destination)
 
     def on_wake_up(self):
+        # TODO - Этот код никогда не будет вызван, если его не вызвать из класса дрона
         soldier = self.unit
         if soldier.payload < 90 and soldier.target.payload < 1:
             soldier.target = self._get_my_asteroid(dist='distance_near')
-            self.move_at(soldier.target)
+            soldier.move_at(soldier.target)
 
     def on_stop_at_asteroid(self, asteroid):
         self.unit.load_from(asteroid)
@@ -207,7 +234,7 @@ class Worker(GlazovDrone):
         soldier.move_at(soldier.my_mothership)
 
     def doing_heartbeat(self):
-
+        # TODO - Не понмаю смысл этого кода
         if self.unit.bornt == 0:
             self.unit.target = self._get_my_asteroid(dist='distance_near')
             self.unit.move_at(self.unit.target)
@@ -217,8 +244,8 @@ class Worker(GlazovDrone):
         max_distance = 0
         target = None
         for asteroid in not_empty_asteroids:
-            if asteroid.payload > 0 and self.distance_to(asteroid) > max_distance:
-                max_distance = self.distance_to(asteroid)
+            if asteroid.payload > 0 and self.unit.distance_to(asteroid) > max_distance:
+                max_distance = self.unit.distance_to(asteroid)
                 target = asteroid
         return target
 
@@ -256,22 +283,17 @@ class Worker(GlazovDrone):
         return rand
 
 
-class Fighter(GlazovDrone):
+class Fighter(Job):
     def __init__(self, unit: GlazovDrone):
-        self.unit = unit
+        super().__init__(unit)
         self.used = set()
         self.stats_dict = {}
         self.stats_dict[self.unit.id] = {}
         self.condition = 'normal'
         self.target = None
-        self.destination = None
         self.ready = False
-        self.bornt = 0
         self.start_destination = None
         self.enemy_count = None
-
-    def next_action(self):
-        pass
 
     def after_born(self):
         soldier = self.unit
@@ -284,7 +306,7 @@ class Fighter(GlazovDrone):
         soldier.destination = soldier.start_destination
         soldier.target = None
 
-    def fighter_actions(self):
+    def next_action(self):
         soldier = self.unit
         if not soldier.target:
             soldier.target = self.get_target()
@@ -323,7 +345,6 @@ class Fighter(GlazovDrone):
             soldier.target = None
             soldier.destination = None
 
-
     def fighter_attack(self):
         soldier = self.unit
         if soldier.distance_to(soldier.my_mothership) > 90:
@@ -338,7 +359,11 @@ class Fighter(GlazovDrone):
             soldier.target = None
             soldier.ready = True
         if soldier.condition == 'normal' and soldier.ready:
-            self.fighter_actions()
+            # TODO - Каждый шаг игры выбирать дальнейшее действие - очень накладно. Игра тормозит из-за этого
+            #  Лучше после завершения каждой выполненной команды выбирать следующее действие.
+            #  Заврешение действий движок вызывает on_методы
+            #  А здесь анализировать при необходимости всё ли идёт по плану. Если вообще это надо...
+            self.next_action()
 
     def get_place_for_attack(self, soldier, target):
 
@@ -397,13 +422,13 @@ class Fighter(GlazovDrone):
 
     def on_stop_at_asteroid(self, asteroid):
         pass
+
     def on_stop_at_mothership(self, mothership):
         pass
 
-
     def get_target(self):
         soldier = self.unit
-        enemies = [(drone, soldier.distance_to(drone), drone.id) for drone in self.scene.drones if
+        enemies = [(drone, soldier.distance_to(drone), drone.id) for drone in soldier.scene.drones if
                    soldier.team != drone.team and drone.is_alive]
         bases = [(base, soldier.distance_to(base)) for base in soldier.scene.motherships if
                  base.team != soldier.team and base.is_alive]

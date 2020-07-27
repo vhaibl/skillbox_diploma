@@ -14,7 +14,7 @@ NUMBER_OF_DRONES = 5
 if __name__ == '__main__':
     scene = SpaceField(
         field=(1200, 600),
-        speed=3,
+        speed=5,
         asteroids_count=7,
         can_fight=True,
     )
