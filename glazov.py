@@ -77,10 +77,6 @@ class GlazovDrone(Drone):
 
     def on_stop_at_asteroid(self, asteroid):
         self.job.on_stop_at_asteroid(asteroid)
-        #  Здесь можно поступить так. Чтобы не реализовывать методы on_stop_at_asteroid и on_load_complete
-        #  у Fight-ров, здесь можно вызвать self.job.next_action() и там реализовать алгоритм у воркеров
-        #  Но это на ваше усмотрение такое решение
-        # TODO Решил оставить так
 
     def on_load_complete(self):
         self.job.on_load_complete()
@@ -94,6 +90,8 @@ class GlazovDrone(Drone):
     def move_at(self, target, speed=None):
         self.stats()
         super().move_at(target, speed=speed)
+
+        # TODO - ... and Worker(self) - что это? проверка будет если проверять класс job: isinstance(self.job, Worker)
         if self.target == self.my_mothership and self.is_empty and Worker(self):
             print(
                 f'Дрон {self.id} пролетел {self.stats_dict[self.id]["empty"]} ед. пустым, '
@@ -174,6 +172,8 @@ class Worker(Job):
         return asteroid
 
     def next_action(self):
+        # TODO - почему здесь два раза on_unload_complete?
+        #  не нужно вызывать on_методы движка. Лучше вынести такой код в отдельный метд и вызывать где надо
         if self.on_unload_complete():
             self.on_unload_complete()
 
@@ -193,6 +193,7 @@ class Worker(Job):
             soldier.destination = soldier.my_mothership
         soldier.move_at(soldier.destination)
 
+    # TODO - Если метод не нужен - удаляйте его
     def on_wake_up(self):
         pass
 
@@ -356,6 +357,7 @@ class Fighter(Job):
             soldier.target = None
             soldier.ready = True
 
+        # TODO - Инетерсно, что вы ожидаете от метода self.unit.on_stop() в этой проверке?
         if soldier.condition == 'normal' and soldier.ready and self.unit.on_stop():
             self.next_action()
 
