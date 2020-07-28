@@ -15,7 +15,6 @@ class GlazovDrone(Drone):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.job = None
-        self.bornt = 0
         self.gun_range = 600
         self.used = set()
         self.stats_dict = {}
@@ -48,7 +47,7 @@ class GlazovDrone(Drone):
             self.start_destination = Point(self.my_mothership.coord.x - self.destinations[self.my_number]['x'],
                                            self.my_mothership.coord.y - self.destinations[self.my_number]['y'])
 
-        if self.my_number == 1:
+        if self.my_number <= 2:
             self.job = Worker(self)
         else:
             self.job = Fighter(self)
@@ -78,9 +77,10 @@ class GlazovDrone(Drone):
 
     def on_stop_at_asteroid(self, asteroid):
         self.job.on_stop_at_asteroid(asteroid)
-        # TODO - Здесь можно поступить так. Чтобы не реализовывать методы on_stop_at_asteroid и on_load_complete
+        #  Здесь можно поступить так. Чтобы не реализовывать методы on_stop_at_asteroid и on_load_complete
         #  у Fight-ров, здесь можно вызвать self.job.next_action() и там реализовать алгоритм у воркеров
         #  Но это на ваше усмотрение такое решение
+        # TODO Решил оставить так
 
     def on_load_complete(self):
         self.job.on_load_complete()
@@ -94,7 +94,7 @@ class GlazovDrone(Drone):
     def move_at(self, target, speed=None):
         self.stats()
         super().move_at(target, speed=speed)
-        if self.target == self.my_mothership and self.is_empty and self.job == Worker(self):
+        if self.target == self.my_mothership and self.is_empty and Worker(self):
             print(
                 f'Дрон {self.id} пролетел {self.stats_dict[self.id]["empty"]} ед. пустым, '
                 f'{self.stats_dict[self.id]["partial"]} ед. частично загруженным,'
@@ -116,11 +116,9 @@ class GlazovDrone(Drone):
 
 
 class Job(ABC):
-    # TODO - Этот класс используем для объявления обязательств реализации абстрактных методов
 
     def __init__(self, unit: GlazovDrone):
         self.unit = unit
-        self.bornt = 0
         self.destination = None
 
     @abstractmethod
@@ -152,7 +150,8 @@ class Worker(Job):
         not_empty_asteroids = [asteroid for asteroid in soldier.scene.asteroids if not asteroid.is_empty]
         not_empty_asteroids.extend([mothership for mothership in soldier.scene.motherships
                                     if not mothership.is_alive and not mothership.is_empty])
-
+        not_empty_asteroids.extend(
+            [drone for drone in soldier.scene.drones if not drone.is_alive and not drone.is_empty])
         for delete in self.unit.used:
             if delete in not_empty_asteroids:
                 not_empty_asteroids.remove(delete)
@@ -175,9 +174,8 @@ class Worker(Job):
         return asteroid
 
     def next_action(self):
-        # TODO - А здесь нужно определить логику. Как минимум этот метод срабатывает у тебя,
-        #  когда дрон разгрузится на базе. Поэтому ничего не делает после разгрузки
-        pass
+        if self.on_unload_complete():
+            self.on_unload_complete()
 
     def after_born(self):
         self.unit.destination = self._get_my_asteroid(dist='distance_near')
@@ -196,11 +194,7 @@ class Worker(Job):
         soldier.move_at(soldier.destination)
 
     def on_wake_up(self):
-        # TODO - Этот код никогда не будет вызван, если его не вызвать из класса дрона
-        soldier = self.unit
-        if soldier.payload < 90 and soldier.target.payload < 1:
-            soldier.target = self._get_my_asteroid(dist='distance_near')
-            soldier.move_at(soldier.target)
+        pass
 
     def on_stop_at_asteroid(self, asteroid):
         self.unit.load_from(asteroid)
@@ -224,21 +218,18 @@ class Worker(Job):
     def on_load_complete(self):
         soldier = self.unit
 
-        if hasattr(soldier.target, 'payload'):
-            if soldier.payload < 90 and soldier.target.payload <= 0:
-                while soldier.target.payload == 0:
-                    soldier.target = self._get_my_asteroid(dist='distance_near')
-                soldier.move_at(soldier.target)
-            else:
-                soldier.move_at(soldier.my_mothership)
-        soldier.move_at(soldier.my_mothership)
+        if not hasattr(soldier.target, 'payload'):
+            soldier.target = self._get_my_asteroid(dist='distance_near')
+
+        if soldier.payload < 90 and soldier.target.payload <= 0:
+            while soldier.target.payload == 0:
+                soldier.target = self._get_my_asteroid(dist='distance_near')
+            soldier.move_at(soldier.target)
+        else:
+            soldier.move_at(soldier.my_mothership)
 
     def doing_heartbeat(self):
-        # TODO - Не понмаю смысл этого кода
-        if self.unit.bornt == 0:
-            self.unit.target = self._get_my_asteroid(dist='distance_near')
-            self.unit.move_at(self.unit.target)
-            self.unit.bornt = 1
+        pass
 
     def __max_distance(self, not_empty_asteroids):
         max_distance = 0
@@ -287,8 +278,6 @@ class Fighter(Job):
     def __init__(self, unit: GlazovDrone):
         super().__init__(unit)
         self.used = set()
-        self.stats_dict = {}
-        self.stats_dict[self.unit.id] = {}
         self.condition = 'normal'
         self.target = None
         self.ready = False
@@ -296,6 +285,7 @@ class Fighter(Job):
         self.enemy_count = None
 
     def after_born(self):
+
         soldier = self.unit
         soldier.move_at(soldier.start_destination)
         soldier.destination = None
@@ -316,38 +306,45 @@ class Fighter(Job):
             soldier.destination = self.get_place_for_attack(soldier, soldier.target)
 
         if hasattr(soldier.target, 'is_alive'):
+            if self.count_enemies() > 2 and not self.friendly_fire(soldier.target):
+                self.test_target = self.get_target()
+                if soldier.distance_to(self.test_target) < soldier.distance_to(soldier.target):
+                    soldier.target = self.test_target
 
-            if str(soldier.coord) != str(soldier.destination):
-                soldier.move_at(soldier.destination)
-                return
-            if soldier.distance_to(soldier.target) > soldier.gun_range and str(soldier.coord) == str(
-                    soldier.destination):
-                soldier.destination = self.get_place_for_attack(soldier, soldier.target)
-                soldier.move_at(soldier.destination)
-
-                return
-            if soldier.distance_to(soldier.target) <= soldier.gun_range and str(soldier.coord) == str(
-                    soldier.destination):
-                if not self.friendly_fire(soldier.target):
-                    self.fighter_attack()
+                self.fighter_attack()
+            else:
+                if str(soldier.coord) != str(soldier.destination):
+                    soldier.move_at(soldier.destination)
                     return
-                else:
-                    self.destination = None
-            for drones in soldier.my_team:
-                if soldier.near(drones):
+
+                if soldier.distance_to(soldier.target) > soldier.gun_range and str(soldier.coord) == str(
+                        soldier.destination):
+                    soldier.destination = self.get_place_for_attack(soldier, soldier.target)
+                    soldier.move_at(soldier.destination)
+                    return
+
+                if soldier.distance_to(soldier.target) <= soldier.gun_range and str(soldier.coord) == str(
+                        soldier.destination):
+                    if not self.friendly_fire(soldier.target):
+                        self.fighter_attack()
+                        return
+                    else:
+                        self.destination = None
+                for drones in soldier.my_team:
+                    if soldier.near(drones):
+                        soldier.destination = None
+                        return
+                if not soldier.target.is_alive:
+                    soldier.target = None
                     soldier.destination = None
                     return
-            if not soldier.target.is_alive:
-                soldier.target = None
-                soldier.destination = None
-                return
         else:
             soldier.target = None
             soldier.destination = None
 
     def fighter_attack(self):
         soldier = self.unit
-        if soldier.distance_to(soldier.my_mothership) > 90:
+        if soldier.distance_to(soldier.my_mothership) >= 90:
             soldier.turn_to(soldier.target)
             soldier.gun.shot(soldier.target)
 
@@ -358,11 +355,8 @@ class Fighter(Job):
             soldier.destination = None
             soldier.target = None
             soldier.ready = True
-        if soldier.condition == 'normal' and soldier.ready:
-            # TODO - Каждый шаг игры выбирать дальнейшее действие - очень накладно. Игра тормозит из-за этого
-            #  Лучше после завершения каждой выполненной команды выбирать следующее действие.
-            #  Заврешение действий движок вызывает on_методы
-            #  А здесь анализировать при необходимости всё ли идёт по плану. Если вообще это надо...
+
+        if soldier.condition == 'normal' and soldier.ready and self.unit.on_stop():
             self.next_action()
 
     def get_place_for_attack(self, soldier, target):
@@ -417,7 +411,6 @@ class Fighter(Job):
                     return True
                 else:
                     continue
-
         return False
 
     def on_stop_at_asteroid(self, asteroid):
@@ -466,3 +459,9 @@ class Fighter(Job):
         else:
             soldier.target = enemy
             return soldier.target
+
+    def count_enemies(self):
+        soldier = self.unit
+        enemies = [(drone, soldier.distance_to(drone), drone.id) for drone in soldier.scene.drones if
+                   soldier.team != drone.team and drone.is_alive]
+        return len(enemies)
