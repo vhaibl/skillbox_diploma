@@ -14,7 +14,6 @@ class GlazovDrone(Drone):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # theme.PLASMAGUN_COOLDOWN_RATE = 100
         self.job = None
         self.gun_range = 580
         self.used = set()
@@ -25,7 +24,6 @@ class GlazovDrone(Drone):
         self.destination = None
         self.ready = False
         self.no_enemies = False
-        # self.no_elerium = False
         self.destinations = {
             1: {'x': 0, 'y': 140},
             2: {'x': 180, 'y': 65},
@@ -60,6 +58,7 @@ class GlazovDrone(Drone):
         if self.no_enemies:
             self.job = Worker(self)
 
+        # TODO - Мусорный код нужно убирать
         # if self.no_elerium:
         #     self.job = Fighter(self)
 
@@ -160,6 +159,7 @@ class Worker(Job):
         return asteroid
 
     def next_action(self):
+        # TODO - Как думаете, что возвращает self.on_unload_complete() ?
         if self.on_unload_complete():
             self.unit.destination = self._get_my_asteroid(dist='distance_neat')
             self.unit.move_at(self.unit.destination)
@@ -184,6 +184,7 @@ class Worker(Job):
     def on_wake_up(self):
         pass
 
+    # TODO - В абстрактном классе Job не предусмотрен параметр
     def on_stop_at_asteroid(self, asteroid):
         self.unit.load_from(asteroid)
 
@@ -295,6 +296,7 @@ class Fighter(Job):
         if not soldier.destination:
             soldier.destination = self.get_place_for_attack(soldier, soldier.target)
 
+        # TODO - Надеюсь, что учли батл против 3 команд. Или нет?
         if hasattr(soldier.target, 'is_alive'):
             if self.count_enemies() == 4 and self.unit.my_number == 1:
                 self.unit.no_enemies = True
@@ -305,6 +307,8 @@ class Fighter(Job):
                     soldier.target = self.test_target
                 self.fighter_attack()
             else:
+                # TODO - Код этой ветки нужно вынести в отдельный метод с хорошим неймингом
+                #  для лучшего понимания алгоритма
                 if str(soldier.coord) != str(soldier.destination):
                     soldier.move_at(soldier.destination)
                     return
@@ -400,6 +404,7 @@ class Fighter(Job):
                     continue
         return False
 
+    # TODO - В абстрактном классе Job не предусмотрен параметр
     def on_stop_at_asteroid(self, asteroid):
         self.next_action()
 
@@ -432,23 +437,26 @@ class Fighter(Job):
             basa = chosen_one[0]
 
         if self.enemy_count <= 2 and len(bases) >= 1:
+            # TODO - Для лучшего понимания алгоритма код этой ветки вынести в отдельный метод с хорошим неймингом
             soldier.gun_range = 550
             soldier.target = basa
             if soldier.my_number == 2:
                 soldier.no_enemies = True
             return soldier.target
         elif self.enemy_count > 0 and len(bases) == 0:
+            # TODO - Для лучшего понимания алгоритма код этой ветки вынести в отдельный метод с хорошим неймингом
             if soldier.my_number == 2:
                 soldier.no_enemies = True
             soldier.target = enemy
             return soldier.target
         elif self.enemy_count == 0 and len(bases) == 0:
-            # TODO В этом месте, когда заканчиваются враги, figher'ы превращаются в worker'ов
+            # TODO - Для лучшего понимания алгоритма код этой ветки вынести в отдельный метод с хорошим неймингом
             self.unit.no_enemies = True
             soldier.target = None
             return soldier.target
 
         else:
+            # TODO - Для лучшего понимания алгоритма код этой ветки вынести в отдельный метод с хорошим неймингом
             soldier.target = enemy
             return soldier.target
 
