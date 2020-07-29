@@ -14,6 +14,7 @@ class GlazovDrone(Drone):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # theme.PLASMAGUN_COOLDOWN_RATE = 100
         self.job = None
         self.gun_range = 600
         self.used = set()
@@ -24,6 +25,7 @@ class GlazovDrone(Drone):
         self.destination = None
         self.ready = False
         self.no_enemies = False
+        # self.no_elerium = False
         self.destinations = {
             1: {'x': 0, 'y': 140},
             2: {'x': 180, 'y': 65},
@@ -47,7 +49,7 @@ class GlazovDrone(Drone):
             self.start_destination = Point(self.my_mothership.coord.x - self.destinations[self.my_number]['x'],
                                            self.my_mothership.coord.y - self.destinations[self.my_number]['y'])
 
-        if self.my_number <= 2:
+        if self.my_number <= 0:
             self.job = Worker(self)
         else:
             self.job = Fighter(self)
@@ -57,6 +59,9 @@ class GlazovDrone(Drone):
     def on_hearbeat(self):
         if self.no_enemies:
             self.job = Worker(self)
+
+        # if self.no_elerium:
+        #     self.job = Fighter(self)
 
         if self.health <= 66:
             self.go_healing()
@@ -78,6 +83,9 @@ class GlazovDrone(Drone):
     def on_stop_at_asteroid(self, asteroid):
         self.job.on_stop_at_asteroid(asteroid)
 
+    def on_stop_at_point(self, target):
+        self.job.on_stop_at_point(target)
+
     def on_load_complete(self):
         self.job.on_load_complete()
 
@@ -86,31 +94,6 @@ class GlazovDrone(Drone):
 
     def on_unload_complete(self):
         self.job.next_action()
-
-    def move_at(self, target, speed=None):
-        self.stats()
-        super().move_at(target, speed=speed)
-
-        # TODO - ... and Worker(self) - что это? проверка будет если проверять класс job: isinstance(self.job, Worker)
-        if self.target == self.my_mothership and self.is_empty and Worker(self):
-            print(
-                f'Дрон {self.id} пролетел {self.stats_dict[self.id]["empty"]} ед. пустым, '
-                f'{self.stats_dict[self.id]["partial"]} ед. частично загруженным,'
-                f' {self.stats_dict[self.id]["full"]} ед. полностью загруженным')
-
-    def stats(self):
-        if isinstance(self.target, GameObject):
-            if 'empty' not in self.stats_dict[self.id]:
-                self.stats_dict[self.id]['empty'] = 0
-                self.stats_dict[self.id]['partial'] = 0
-                self.stats_dict[self.id]['full'] = 0
-            if self.is_empty:
-                self.stats_dict[self.id]['empty'] += int(self.distance_to(self.target))
-            if self.free_space > 0 and self.free_space < 100:
-                self.stats_dict[self.id]['partial'] += int(self.distance_to(self.target))
-            if self.is_full:
-                self.stats_dict[self.id]['full'] += int(self.distance_to(self.my_mothership))
-            return self.stats_dict
 
 
 class Job(ABC):
@@ -135,6 +118,10 @@ class Job(ABC):
     def on_stop_at_mothership(self, mothership):
         pass
 
+    @abstractmethod
+    def on_stop_at_point(self, target):
+        pass
+
 
 class Worker(Job):
 
@@ -151,10 +138,11 @@ class Worker(Job):
         not_empty_asteroids.extend(
             [drone for drone in soldier.scene.drones if not drone.is_alive and not drone.is_empty])
         for delete in self.unit.used:
-            if delete in not_empty_asteroids:
+            if delete in not_empty_asteroids and delete.payload == 0:
                 not_empty_asteroids.remove(delete)
 
         if len(not_empty_asteroids) == 0:
+            # soldier.no_elerium = True
             return soldier.my_mothership
 
         if dist == 'distance_far':
@@ -172,10 +160,9 @@ class Worker(Job):
         return asteroid
 
     def next_action(self):
-        # TODO - почему здесь два раза on_unload_complete?
-        #  не нужно вызывать on_методы движка. Лучше вынести такой код в отдельный метд и вызывать где надо
         if self.on_unload_complete():
-            self.on_unload_complete()
+            self.unit.destination = self._get_my_asteroid(dist='distance_neat')
+            self.unit.move_at(self.unit.destination)
 
     def after_born(self):
         self.unit.destination = self._get_my_asteroid(dist='distance_near')
@@ -206,15 +193,15 @@ class Worker(Job):
         elif mothership != self.unit.my_mothership:
             self.unit.load_from(mothership)
 
+    def on_stop_at_point(self, target):
+        dead_drones = [drone for drone in self.unit.scene.drones if not drone.is_alive and not drone.is_empty]
+        for drone in dead_drones:
+            if drone.near(target) and drone.payload > 0: self.unit.load_from(drone)
+
     def on_unload_complete(self):
         soldier = self.unit
-        if hasattr(soldier.target, 'payload'):
-            while soldier.target.payload == 0 and soldier.target is not soldier.my_mothership:
-                soldier.target = self._get_my_asteroid(dist='distance_near')
-            soldier.move_at(soldier.target)
-        else:
-            soldier.target = self._get_my_asteroid(dist='distance_near')
-            soldier.move_at(soldier.target)
+        soldier.target = self._get_my_asteroid(dist='distance_near')
+        soldier.move_at(soldier.target)
 
     def on_load_complete(self):
         soldier = self.unit
@@ -286,7 +273,6 @@ class Fighter(Job):
         self.enemy_count = None
 
     def after_born(self):
-
         soldier = self.unit
         soldier.move_at(soldier.start_destination)
         soldier.destination = None
@@ -298,6 +284,9 @@ class Fighter(Job):
         soldier.target = None
 
     def next_action(self):
+        self.fight()
+
+    def fight(self):
         soldier = self.unit
         if not soldier.target:
             soldier.target = self.get_target()
@@ -307,21 +296,23 @@ class Fighter(Job):
             soldier.destination = self.get_place_for_attack(soldier, soldier.target)
 
         if hasattr(soldier.target, 'is_alive'):
+            if self.count_enemies() == 4 and self.unit.my_number == 1:
+                self.unit.no_enemies = True
+
             if self.count_enemies() > 2 and not self.friendly_fire(soldier.target):
                 self.test_target = self.get_target()
                 if soldier.distance_to(self.test_target) < soldier.distance_to(soldier.target):
                     soldier.target = self.test_target
-
                 self.fighter_attack()
             else:
                 if str(soldier.coord) != str(soldier.destination):
                     soldier.move_at(soldier.destination)
                     return
 
-                if soldier.distance_to(soldier.target) > soldier.gun_range and str(soldier.coord) == str(
+                elif soldier.distance_to(soldier.target) > soldier.gun_range and str(soldier.coord) == str(
                         soldier.destination):
                     soldier.destination = self.get_place_for_attack(soldier, soldier.target)
-                    soldier.move_at(soldier.destination)
+                    # soldier.move_at(soldier.destination)
                     return
 
                 if soldier.distance_to(soldier.target) <= soldier.gun_range and str(soldier.coord) == str(
@@ -351,18 +342,12 @@ class Fighter(Job):
 
     def doing_heartbeat(self):
         soldier = self.unit
-
         if str(soldier.start_destination) == str(soldier.coord) and not soldier.ready:
             soldier.destination = None
             soldier.target = None
             soldier.ready = True
 
-        # TODO - Инетерсно, что вы ожидаете от метода self.unit.on_stop() в этой проверке?
-        if soldier.condition == 'normal' and soldier.ready and self.unit.on_stop():
-            self.next_action()
-
     def get_place_for_attack(self, soldier, target):
-
         if isinstance(target, GameObject):
             vec = Vector.from_points(target.coord, soldier.coord)
         elif isinstance(target, Point):
@@ -416,10 +401,14 @@ class Fighter(Job):
         return False
 
     def on_stop_at_asteroid(self, asteroid):
-        pass
+        self.next_action()
 
     def on_stop_at_mothership(self, mothership):
-        pass
+        self.next_action()
+
+    def on_stop_at_point(self, target):
+        self.next_action()
+
 
     def get_target(self):
         soldier = self.unit
@@ -442,7 +431,7 @@ class Fighter(Job):
             chosen_one = bases[0]
             basa = chosen_one[0]
 
-        if self.enemy_count <= 1 and len(bases) >= 1:
+        if self.enemy_count <= 2 and len(bases) >= 1:
             soldier.gun_range = 550
             soldier.target = basa
             if soldier.my_number == 2:
@@ -454,6 +443,7 @@ class Fighter(Job):
             soldier.target = enemy
             return soldier.target
         elif self.enemy_count == 0 and len(bases) == 0:
+            # TODO В этом месте, когда заканчиваются враги, figher'ы превращаются в worker'ов
             self.unit.no_enemies = True
             soldier.target = None
             return soldier.target
