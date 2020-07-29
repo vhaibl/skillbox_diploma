@@ -16,7 +16,7 @@ class GlazovDrone(Drone):
         super().__init__(**kwargs)
         # theme.PLASMAGUN_COOLDOWN_RATE = 100
         self.job = None
-        self.gun_range = 600
+        self.gun_range = 580
         self.used = set()
         self.stats_dict = {}
         self.stats_dict[self.id] = {}
@@ -312,7 +312,7 @@ class Fighter(Job):
                 elif soldier.distance_to(soldier.target) > soldier.gun_range and str(soldier.coord) == str(
                         soldier.destination):
                     soldier.destination = self.get_place_for_attack(soldier, soldier.target)
-                    # soldier.move_at(soldier.destination)
+                    soldier.move_at(soldier.destination)
                     return
 
                 if soldier.distance_to(soldier.target) <= soldier.gun_range and str(soldier.coord) == str(
