@@ -58,10 +58,6 @@ class GlazovDrone(Drone):
         if self.no_enemies:
             self.job = Worker(self)
 
-        # TODO - Мусорный код нужно убирать
-        # if self.no_elerium:
-        #     self.job = Fighter(self)
-
         if self.health <= 66:
             self.go_healing()
 
@@ -110,7 +106,7 @@ class Job(ABC):
         pass
 
     @abstractmethod
-    def on_stop_at_asteroid(self):
+    def on_stop_at_asteroid(self, asteroid):
         pass
 
     @abstractmethod
@@ -141,7 +137,6 @@ class Worker(Job):
                 not_empty_asteroids.remove(delete)
 
         if len(not_empty_asteroids) == 0:
-            # soldier.no_elerium = True
             return soldier.my_mothership
 
         if dist == 'distance_far':
@@ -159,10 +154,7 @@ class Worker(Job):
         return asteroid
 
     def next_action(self):
-        # TODO - Как думаете, что возвращает self.on_unload_complete() ?
-        if self.on_unload_complete():
-            self.unit.destination = self._get_my_asteroid(dist='distance_neat')
-            self.unit.move_at(self.unit.destination)
+        self.on_unload_complete()
 
     def after_born(self):
         self.unit.destination = self._get_my_asteroid(dist='distance_near')
@@ -180,11 +172,6 @@ class Worker(Job):
             soldier.destination = soldier.my_mothership
         soldier.move_at(soldier.destination)
 
-    # TODO - Если метод не нужен - удаляйте его
-    def on_wake_up(self):
-        pass
-
-    # TODO - В абстрактном классе Job не предусмотрен параметр
     def on_stop_at_asteroid(self, asteroid):
         self.unit.load_from(asteroid)
 
@@ -211,8 +198,7 @@ class Worker(Job):
             soldier.target = self._get_my_asteroid(dist='distance_near')
 
         if soldier.payload < 90 and soldier.target.payload <= 0:
-            while soldier.target.payload == 0:
-                soldier.target = self._get_my_asteroid(dist='distance_near')
+            soldier.target = self._get_my_asteroid(dist='distance_near')
             soldier.move_at(soldier.target)
         else:
             soldier.move_at(soldier.my_mothership)
@@ -296,52 +282,59 @@ class Fighter(Job):
         if not soldier.destination:
             soldier.destination = self.get_place_for_attack(soldier, soldier.target)
 
-        # TODO - Надеюсь, что учли батл против 3 команд. Или нет?
         if hasattr(soldier.target, 'is_alive'):
-            if self.count_enemies() == 4 and self.unit.my_number == 1:
+            if self.count_enemies() >= 4 and self.unit.my_number <= 2:
                 self.unit.no_enemies = True
 
-            if self.count_enemies() > 2 and not self.friendly_fire(soldier.target):
+            if self.count_enemies() >= len(soldier.scene.drones) / 4 and not self.friendly_fire(soldier.target):
                 self.test_target = self.get_target()
                 if soldier.distance_to(self.test_target) < soldier.distance_to(soldier.target):
                     soldier.target = self.test_target
                 self.fighter_attack()
             else:
-                # TODO - Код этой ветки нужно вынести в отдельный метод с хорошим неймингом
-                #  для лучшего понимания алгоритма
-                if str(soldier.coord) != str(soldier.destination):
-                    soldier.move_at(soldier.destination)
-                    return
-
-                elif soldier.distance_to(soldier.target) > soldier.gun_range and str(soldier.coord) == str(
-                        soldier.destination):
-                    soldier.destination = self.get_place_for_attack(soldier, soldier.target)
-                    soldier.move_at(soldier.destination)
-                    return
-
-                if soldier.distance_to(soldier.target) <= soldier.gun_range and str(soldier.coord) == str(
-                        soldier.destination):
-                    if not self.friendly_fire(soldier.target):
-                        self.fighter_attack()
-                        return
-                    else:
-                        self.destination = None
-                for drones in soldier.my_team:
-                    if soldier.near(drones):
-                        soldier.destination = None
-                        return
-                if not soldier.target.is_alive:
-                    soldier.target = None
-                    soldier.destination = None
-                    return
+                self.standard_fight_method()
         else:
             soldier.target = None
             soldier.destination = None
+
+    def standard_fight_method(self):
+        soldier = self.unit
+        if str(soldier.coord) != str(soldier.destination):
+
+            soldier.move_at(soldier.destination)
+            return
+
+        elif soldier.distance_to(soldier.target) > soldier.gun_range and str(soldier.coord) == str(
+                soldier.destination):
+            soldier.destination = self.get_place_for_attack(soldier, soldier.target)
+
+            soldier.move_at(soldier.destination)
+            return
+
+        if soldier.distance_to(soldier.target) <= soldier.gun_range + 100 and str(soldier.coord) == str(
+                soldier.destination):
+            if self.friendly_fire(soldier.target):
+                pass
+            else:
+                self.fighter_attack()
+                return
+            # else:
+            #     self.destination = None
+
+        for drones in soldier.my_team:
+            if soldier.near(drones):
+                soldier.destination = None
+                return
+        if not soldier.target.is_alive:
+            soldier.target = None
+            soldier.destination = None
+            return
 
     def fighter_attack(self):
         soldier = self.unit
         if soldier.distance_to(soldier.my_mothership) >= 90:
             soldier.turn_to(soldier.target)
+
             soldier.gun.shot(soldier.target)
 
     def doing_heartbeat(self):
@@ -404,7 +397,6 @@ class Fighter(Job):
                     continue
         return False
 
-    # TODO - В абстрактном классе Job не предусмотрен параметр
     def on_stop_at_asteroid(self, asteroid):
         self.next_action()
 
@@ -414,7 +406,6 @@ class Fighter(Job):
     def on_stop_at_point(self, target):
         self.next_action()
 
-
     def get_target(self):
         soldier = self.unit
         enemies = [(drone, soldier.distance_to(drone), drone.id) for drone in soldier.scene.drones if
@@ -423,12 +414,22 @@ class Fighter(Job):
                  base.team != soldier.team and base.is_alive]
         bases.sort(key=lambda x: x[1])
         enemies.sort(key=lambda x: x[1])
-
+        if len(enemies) > 0:
+            devastators = [(drone, soldier.distance_to(drone), drone.id) for drone in soldier.scene.drones if
+                           soldier.team != drone.team and drone.is_alive and drone.team == 'DevastatorDrone']
         basa = None
         enemy = None
         self.enemy_count = len(enemies)
+        if devastators:
+            devastators.sort(key=lambda x: x[2])
+            if len(devastators) > 2:
+                chosen_one = devastators[0]
+                enemy = chosen_one[0]
+            else:
+                chosen_one = enemies[0]
+                enemy = chosen_one[0]
 
-        if self.enemy_count > 0:
+        else:
             chosen_one = enemies[0]
             enemy = chosen_one[0]
 
@@ -437,28 +438,32 @@ class Fighter(Job):
             basa = chosen_one[0]
 
         if self.enemy_count <= 2 and len(bases) >= 1:
-            # TODO - Для лучшего понимания алгоритма код этой ветки вынести в отдельный метод с хорошим неймингом
-            soldier.gun_range = 550
-            soldier.target = basa
-            if soldier.my_number == 2:
-                soldier.no_enemies = True
-            return soldier.target
+            return self.attack_base_if_only_two_enemies_left(basa, soldier)
         elif self.enemy_count > 0 and len(bases) == 0:
-            # TODO - Для лучшего понимания алгоритма код этой ветки вынести в отдельный метод с хорошим неймингом
-            if soldier.my_number == 2:
-                soldier.no_enemies = True
-            soldier.target = enemy
-            return soldier.target
+            return self.attack_enemies_when_no_bases_left(enemy, soldier)
         elif self.enemy_count == 0 and len(bases) == 0:
-            # TODO - Для лучшего понимания алгоритма код этой ветки вынести в отдельный метод с хорошим неймингом
-            self.unit.no_enemies = True
-            soldier.target = None
-            return soldier.target
-
+            return self.harvest_elerium_when_no_bases_and_enemies_left(soldier)
         else:
-            # TODO - Для лучшего понимания алгоритма код этой ветки вынести в отдельный метод с хорошим неймингом
-            soldier.target = enemy
-            return soldier.target
+            return self.attack_enemy(enemy, soldier)
+
+    def attack_enemy(self, enemy, soldier):
+        soldier.target = enemy
+        return soldier.target
+
+    def harvest_elerium_when_no_bases_and_enemies_left(self, soldier, enemy):
+        self.unit.no_enemies = True
+        return self.attack_enemy(enemy, soldier)
+
+    def attack_enemies_when_no_bases_left(self, enemy, soldier):
+        if soldier.my_number == 2:
+            soldier.no_enemies = True
+        return self.attack_enemy(enemy, soldier)
+
+    def attack_base_if_only_two_enemies_left(self, basa, soldier):
+        soldier.target = basa
+        if soldier.my_number == 2:
+            soldier.no_enemies = True
+        return soldier.target
 
     def count_enemies(self):
         soldier = self.unit
