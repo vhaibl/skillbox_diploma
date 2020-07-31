@@ -415,6 +415,7 @@ class Fighter(Job):
         bases.sort(key=lambda x: x[1])
         enemies.sort(key=lambda x: x[1])
         if len(enemies) > 0:
+            # TODO - Зря привязались к DevastatorDrone. Могут быть и другие команды
             devastators = [(drone, soldier.distance_to(drone), drone.id) for drone in soldier.scene.drones if
                            soldier.team != drone.team and drone.is_alive and drone.team == 'DevastatorDrone']
         basa = None

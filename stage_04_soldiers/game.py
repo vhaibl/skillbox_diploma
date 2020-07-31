@@ -15,12 +15,12 @@ if __name__ == '__main__':
     scene = SpaceField(
         field=(1200, 600),
         speed=5,
-        asteroids_count=27,
+        asteroids_count=17,
         can_fight=True,
     )
 
-    team_2 = [ReaperDrone() for _ in range(NUMBER_OF_DRONES)]
-    team_3 = [DrillerDrone() for _ in range(NUMBER_OF_DRONES)]
+    # team_2 = [ReaperDrone() for _ in range(NUMBER_OF_DRONES)]
+    # team_3 = [DrillerDrone() for _ in range(NUMBER_OF_DRONES)]
     team_1 = [GlazovDrone() for _ in range(NUMBER_OF_DRONES)]
     team_4 = [DevastatorDrone() for _ in range(NUMBER_OF_DRONES)]
     scene.go()
@@ -29,4 +29,3 @@ if __name__ == '__main__':
 #  Стартовая позиция может быть в любом из 4х углов
 #  Поле тоже может быть любого размера
 #  После разгрома противника, нужно собирать элериум
-# TODO - сатистику можно вооббще убрать
