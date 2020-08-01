@@ -11,9 +11,18 @@ from vader import VaderDrone
 
 NUMBER_OF_DRONES = 5
 
+
+class DevastatorDrone2(DevastatorDrone):
+    pass
+
+
+class DevastatorDrone3(DevastatorDrone):
+    pass
+
+
 if __name__ == '__main__':
     scene = SpaceField(
-        field=(1200, 600),
+        field=(1200, 900),
         speed=5,
         asteroids_count=17,
         can_fight=True,
@@ -23,9 +32,10 @@ if __name__ == '__main__':
     # team_3 = [DrillerDrone() for _ in range(NUMBER_OF_DRONES)]
     team_1 = [GlazovDrone() for _ in range(NUMBER_OF_DRONES)]
     team_4 = [DevastatorDrone() for _ in range(NUMBER_OF_DRONES)]
+    team_5 = [DevastatorDrone2() for _ in range(NUMBER_OF_DRONES)]
+    team_6 = [DevastatorDrone3() for _ in range(NUMBER_OF_DRONES)]
     scene.go()
 
-# TODO - Побеждать девастаторов чаще, чем проигрывать. БЕЗ ЧИТЕРСТВА!
-#  Стартовая позиция может быть в любом из 4х углов
-#  Поле тоже может быть любого размера
-#  После разгрома противника, нужно собирать элериум
+# TODO - Побеждать девастаторов 1x1 чаще, чем проигрывать. БЕЗ ЧИТЕРСТВА!
+
+# Для теста против 3 команд предлагаю тестировать в такой конфигурации
