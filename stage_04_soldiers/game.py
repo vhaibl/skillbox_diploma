@@ -32,8 +32,8 @@ if __name__ == '__main__':
     # team_3 = [DrillerDrone() for _ in range(NUMBER_OF_DRONES)]
     team_1 = [GlazovDrone() for _ in range(NUMBER_OF_DRONES)]
     team_4 = [DevastatorDrone() for _ in range(NUMBER_OF_DRONES)]
-    team_5 = [DevastatorDrone2() for _ in range(NUMBER_OF_DRONES)]
-    team_6 = [DevastatorDrone3() for _ in range(NUMBER_OF_DRONES)]
+    # team_5 = [DevastatorDrone2() for _ in range(NUMBER_OF_DRONES)]
+    # team_6 = [DevastatorDrone3() for _ in range(NUMBER_OF_DRONES)]
     scene.go()
 
 # TODO - Побеждать девастаторов 1x1 чаще, чем проигрывать. БЕЗ ЧИТЕРСТВА!
