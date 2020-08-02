@@ -187,6 +187,7 @@ class Worker(Job):
             self.unit.load_from(mothership)
 
     def on_stop_at_point(self, target):
+
         dead_drones = [drone for drone in self.unit.scene.drones if not drone.is_alive and not drone.is_empty]
         for drone in dead_drones:
             if drone.near(target): self.unit.load_from(drone)
@@ -283,8 +284,8 @@ class Fighter(Job):
     def fight(self):
         soldier = self.unit
         soldier.target = self.get_target()
-        if not soldier.target.is_alive:
-            soldier.target = self.get_target()
+        # if not soldier.target.is_alive:
+        #     soldier.target = self.get_target()
 
         if not soldier.destination:
             soldier.destination = self.get_place_for_attack(soldier, soldier.target)
