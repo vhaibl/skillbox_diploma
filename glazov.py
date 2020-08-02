@@ -8,6 +8,10 @@ from robogame_engine import GameObject
 from robogame_engine.geometry import Point, Vector
 from robogame_engine.theme import theme
 
+theme.FIELD_WIDTH = 1200
+theme.FIELD_HEIGHT = 900
+""" нужно для правильного отображения окна в Windows"""
+
 
 class GlazovDrone(Drone):
     my_team = []
@@ -25,11 +29,11 @@ class GlazovDrone(Drone):
         self.ready = False
         self.no_enemies = False
         self.destinations = {
-            1: {'x': 270, 'y': 180},
-            2: {'x': 270, 'y': 270},
-            3: {'x': 270, 'y': 90},
-            4: {'x': 270, 'y': 320},
-            5: {'x': 270, 'y': 0}}
+            1: {'x': -30, 'y': 190},
+            2: {'x': 50, 'y': 150},
+            3: {'x': 120, 'y': 110},
+            4: {'x': 160, 'y': 40},
+            5: {'x': 190, 'y': -30}}
 
     def on_born(self):
         self.my_team.append(self)
@@ -58,7 +62,7 @@ class GlazovDrone(Drone):
         if self.no_enemies:
             self.job = Worker(self)
 
-        if self.health <= 66:
+        if self.health <= 70:
             self.go_healing()
 
         elif self.health >= 95 and self.condition == 'wounded':
@@ -184,7 +188,7 @@ class Worker(Job):
     def on_stop_at_point(self, target):
         dead_drones = [drone for drone in self.unit.scene.drones if not drone.is_alive and not drone.is_empty]
         for drone in dead_drones:
-            if drone.near(target) and drone.payload > 0: self.unit.load_from(drone)
+            if drone.near(target): self.unit.load_from(drone)
 
     def on_unload_complete(self):
         soldier = self.unit
@@ -252,12 +256,14 @@ class Worker(Job):
 class Fighter(Job):
     def __init__(self, unit: GlazovDrone):
         super().__init__(unit)
+        self.enemies_on_born = self.count_enemies()
         self.used = set()
         self.condition = 'normal'
         self.target = None
         self.ready = False
         self.start_destination = None
         self.enemy_count = None
+        self.one_time_move = False
 
     def after_born(self):
         soldier = self.unit
@@ -267,61 +273,45 @@ class Fighter(Job):
     def return_after_healing(self):
         soldier = self.unit
         soldier.condition = 'normal'
-        soldier.destination = soldier.start_destination
-        soldier.target = None
-        soldier.move_at(soldier.destination)
+        self.after_born()
+        return
 
     def next_action(self):
         self.fight()
 
     def fight(self):
         soldier = self.unit
-        if not soldier.target:
-            soldier.target = self.get_target()
+        soldier.target = self.get_target()
         if not soldier.target.is_alive:
             soldier.target = self.get_target()
+
         if not soldier.destination:
             soldier.destination = self.get_place_for_attack(soldier, soldier.target)
-        if self.enemy_count > 1:
+
+        if self.enemies_on_born >= 10 and self.enemy_count >= 4:
+            print(self.enemies_on_born, self.enemy_count)
+
             if not self.friendly_fire(soldier.target):
                 soldier.gun.shot(soldier.target)
+            soldier.target = self.get_target()
+            soldier.turn_to(soldier.target)
+
+        elif self.enemies_on_born == 5 and self.enemy_count > 2:
+            soldier.gun.shot(soldier.target)
+            soldier.target = self.get_target()
+            soldier.turn_to(soldier.target)
+        elif self.enemies_on_born == 5 and self.enemy_count == 2:
+            if soldier.my_number == 1:
+                soldier.no_enemies = True
+            soldier.gun.shot(soldier.target)
             soldier.target = self.get_target()
             soldier.turn_to(soldier.target)
 
         else:
             if soldier.my_number == 1:
                 soldier.no_enemies = True
-            self.standard_fight_method()
-
-    def standard_fight_method(self):
-        soldier = self.unit
-        if str(soldier.coord) != str(soldier.destination):
-            soldier.move_at(soldier.destination)
-            return
-
-        elif soldier.distance_to(soldier.target) > soldier.gun_range and str(soldier.coord) == str(
-                soldier.destination):
-            soldier.destination = self.get_place_for_attack(soldier, soldier.target)
-            soldier.move_at(soldier.destination)
-            return
-
-        if soldier.distance_to(soldier.target) <= soldier.gun_range + 100 and str(soldier.coord) == str(
-                soldier.destination):
-            if self.friendly_fire(soldier.target):
-                pass
-            else:
-                soldier.turn_to(soldier.target)
-                self.fighter_attack()
-                return
-
-        for drones in soldier.my_team:
-            if soldier.near(drones):
-                soldier.destination = None
-                return
-        if not soldier.target.is_alive:
-            soldier.target = None
-            soldier.destination = None
-            return
+            soldier.target = self.get_target()
+            self.finish_them()
 
     def fighter_attack(self):
         soldier = self.unit
@@ -382,7 +372,7 @@ class Fighter(Job):
             drone_list_copy = [drone for drone in drone_list_copy if drone.is_alive]
             for drone in drone_list_copy:
                 drone.radius = 50
-                if drone.near(Point(c_x, c_y)) or self.unit.my_mothership.near(Point(c_x, c_y)):
+                if drone.near(Point(c_x, c_y)):
                     return True
                 else:
                     continue
@@ -402,9 +392,9 @@ class Fighter(Job):
         soldier = self.unit
         enemies = [(drone, soldier.distance_to(drone), drone.id) for drone in soldier.scene.drones if
                    soldier.team != drone.team and drone.is_alive]
-        bases = [(base, soldier.distance_to(base)) for base in soldier.scene.motherships if
+        bases = [(base, soldier.distance_to(base), base.id) for base in soldier.scene.motherships if
                  base.team != soldier.team and base.is_alive]
-        bases.sort(key=lambda x: x[1])
+        bases.sort(key=lambda x: x[2])
         enemies.sort(key=lambda x: x[1])
 
         basa = None
@@ -431,18 +421,13 @@ class Fighter(Job):
         return soldier.target
 
     def harvest_elerium_when_no_bases_and_enemies_left(self, soldier):
+        self.unit.target = self.unit.my_mothership
+        self.unit.destination = self.unit.my_mothership
         self.unit.no_enemies = True
         return
 
-    def attack_enemies_when_no_bases_left(self, enemy, soldier):
-        if soldier.my_number == 2:
-            soldier.no_enemies = True
-        return self.attack_enemy(enemy, soldier)
-
     def attack_base_if_only_two_enemies_left(self, basa, soldier):
         soldier.target = basa
-        if soldier.my_number == 2:
-            soldier.no_enemies = True
         return soldier.target
 
     def count_enemies(self):
@@ -450,3 +435,27 @@ class Fighter(Job):
         enemies = [(drone, soldier.distance_to(drone), drone.id) for drone in soldier.scene.drones if
                    soldier.team != drone.team and drone.is_alive]
         return len(enemies)
+
+    def finish_them(self):
+        soldier = self.unit
+        if str(soldier.coord) != str(soldier.destination):
+            soldier.move_at(soldier.destination)
+            return
+
+        elif soldier.distance_to(soldier.target) > soldier.gun_range and str(soldier.coord) == str(
+                soldier.destination):
+            soldier.destination = self.get_place_for_attack(soldier, soldier.target)
+            soldier.move_at(soldier.destination)
+            return
+
+        if soldier.distance_to(soldier.target) <= soldier.gun_range + 100 and str(soldier.coord) == str(
+                soldier.destination):
+            if not self.friendly_fire(soldier.target):
+                soldier.turn_to(soldier.target)
+                self.fighter_attack()
+                return
+
+        if not soldier.target.is_alive:
+            soldier.target = None
+            soldier.destination = None
+            return
