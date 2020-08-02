@@ -8,8 +8,9 @@ from robogame_engine import GameObject
 from robogame_engine.geometry import Point, Vector
 from robogame_engine.theme import theme
 
-theme.FIELD_WIDTH = 1200
-theme.FIELD_HEIGHT = 900
+# TODO - Не надо устанавливать размер поля в своём модуле
+# theme.FIELD_WIDTH = 1200
+# theme.FIELD_HEIGHT = 900
 """ нужно для правильного отображения окна в Windows"""
 
 
